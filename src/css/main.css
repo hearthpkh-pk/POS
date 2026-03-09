@@ -1,0 +1,50 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Sarabun:wght@300;400;600;700&display=swap');
+
+body { 
+    font-family: 'Inter', 'Sarabun', sans-serif; 
+    background-color: #F3F4F6; 
+    overflow: hidden;
+    /* PWA Safe Area Fixes for iPhone X+ */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    height: 100vh;
+    height: 100dvh; /* Mobile Dynamic Viewport Height */
+}
+
+.main-wrapper { display: flex; height: 100%; width: 100%; overflow: hidden; position: relative; }
+
+/* Adjust Mobile Header for Safe Area */
+.lg\:hidden.fixed.top-0 {
+    top: env(safe-area-inset-top);
+}
+
+.sidebar { 
+    background-color: #FFFFFF; 
+    box-shadow: 2px 0 5px rgba(0,0,0,0.05); 
+    display: flex; flex-direction: column; 
+    z-index: 50; width: 260px; flex-shrink: 0;
+    transition: transform 0.3s ease-in-out;
+    padding-top: 0; 
+}
+
+.sidebar-item { display: flex; align-items: center; padding: 1rem 1.5rem; color: #4B5563; cursor: pointer; font-weight: 500; transition: all 0.15s; }
+.sidebar-item:hover { background-color: #F3F4F6; }
+.sidebar-item.active { color: #EA580C; background-color: #FFF7ED; border-right: 4px solid #EA580C; }
+
+.pos-grid { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+
+@media (min-width: 1024px) {
+    .pos-grid { flex-direction: row; }
+    .pending-column { flex: 1.5; border-right: 1px solid #D1D5DB; height: 100%; }
+    .detail-column { flex: 1; height: 100%; }
+}
+
+@media (max-width: 1023px) {
+    .pending-column { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+    .detail-column { height: 45%; flex-shrink: 0; border-top: 4px solid #EA580C; box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1); }
+}
+
+.pending-column { background-color: #E5E7EB; display: flex; flex-direction: column; }
+.detail-column { background-color: #FFFFFF; display: flex; flex-direction: column; }
