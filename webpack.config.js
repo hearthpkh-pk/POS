@@ -158,33 +158,10 @@ module.exports = (env, argv) => {
     plugins: [
       // Clean output directory
       new CleanWebpackPlugin(),
-
-      // HTML template
+      // Customer portal HTML (Root index.html)
       new HtmlWebpackPlugin({
         template: './public/index.html',
         filename: 'index.html',
-        inject: 'body',
-        minify: isProduction ? {
-          removeComments: true,
-          collapseWhitespace: true,
-          removeRedundantAttributes: true,
-          useShortDoctype: true,
-          removeEmptyAttributes: true,
-          removeStyleLinkTypeAttributes: true,
-          keepClosingSlash: true,
-          minifyJS: true,
-          minifyCSS: true,
-          minifyURLs: true,
-        } : false,
-        templateParameters: {
-          isProduction,
-          version: require('./package.json').version
-        }
-      }),
-      // Customer portal HTML
-      new HtmlWebpackPlugin({
-        template: './public/customer.html',
-        filename: 'customer.html',
         inject: 'body',
         chunks: ['main'],
         minify: isProduction ? {
@@ -204,7 +181,30 @@ module.exports = (env, argv) => {
           version: require('./package.json').version,
         }
       }),
-      // Admin portal HTML
+      // Employee portal HTML (pos.html)
+      new HtmlWebpackPlugin({
+        template: './public/pos.html',
+        filename: 'pos.html',
+        inject: 'body',
+        chunks: ['main'],
+        minify: isProduction ? {
+          removeComments: true,
+          collapseWhitespace: true,
+          removeRedundantAttributes: true,
+          useShortDoctype: true,
+          removeEmptyAttributes: true,
+          removeStyleLinkTypeAttributes: true,
+          keepClosingSlash: true,
+          minifyJS: true,
+          minifyCSS: true,
+          minifyURLs: true,
+        } : false,
+        templateParameters: {
+          isProduction,
+          version: require('./package.json').version,
+        }
+      }),
+      // Admin portal HTML (admin.html)
       new HtmlWebpackPlugin({
         template: './public/admin.html',
         filename: 'admin.html',
@@ -227,7 +227,6 @@ module.exports = (env, argv) => {
           version: require('./package.json').version,
         }
       }),
-
       // Extract CSS to separate file in production
       ...(isProduction ? [
         new MiniCssExtractPlugin({
@@ -235,7 +234,6 @@ module.exports = (env, argv) => {
           chunkFilename: 'css/[name].[contenthash:8].chunk.css'
         })
       ] : []),
-
       // Copy static assets
       new CopyWebpackPlugin({
         patterns: [
@@ -243,12 +241,11 @@ module.exports = (env, argv) => {
             from: 'public',
             to: '.',
             globOptions: {
-              ignore: ['**/index.html', '**/customer.html', '**/admin.html']
+              ignore: ['**/index.html', '**/pos.html', '**/admin.html']
             }
           }
         ]
       }),
-
       // Environment variables
       new Dotenv({ systemvars: true }),
       new webpack.DefinePlugin({
@@ -320,7 +317,12 @@ module.exports = (env, argv) => {
       port: 3000,
       hot: true,
       open: true,
-      historyApiFallback: true,
+      historyApiFallback: {
+        rewrites: [
+          { from: /^\/pos$/, to: '/pos.html' },
+          { from: /^\/admin$/, to: '/admin.html' }
+        ]
+      },
       compress: true,
       client: {
         overlay: {

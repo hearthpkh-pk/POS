@@ -99,6 +99,11 @@ export class CustomerHome {
     this._sessionStart = Date.now();
     this._pendingGuestInfo = null;
     this._toastTimeout = null;
+    try {
+      this.likedItems = JSON.parse(localStorage.getItem('meinlicht_likes') || '[]');
+    } catch (e) {
+      this.likedItems = [];
+    }
     this._init();
   }
 
@@ -125,7 +130,8 @@ export class CustomerHome {
         category_id: item.category_id,
         category_name_th: item.categories?.name_th || 'อื่นๆ',
         category_name_en: item.categories?.name_en || 'Others',
-        sort_order: item.categories?.sort_order !== undefined ? item.categories.sort_order : 999
+        sort_order: item.categories?.sort_order !== undefined ? item.categories.sort_order : 999,
+        likes_count: item.likes_count || 0
       }));
     }
 
@@ -135,6 +141,7 @@ export class CustomerHome {
     this._initGallery();
     this._initMenuSearch();
     this._initCart();
+    this._initDetailModal();
     this._initDock();
     this._initScrollAnimations();
     this._trackEvent('page_load', { ts: Date.now() });
@@ -158,12 +165,15 @@ export class CustomerHome {
     const location = s.location || 'Bangkok, Thailand';
     const heroImg = s.hero_image || 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=1600&q=80';
     const logoImg = s.hero_logo || '';
-
-    // New keys fallback
-    const phone = s.store_phone || '081-234-5678';
-    const locationUrl = s.location_url || 'https://maps.google.com';
+    const phone = s.store_phone || '064-9288187';
+    const locationUrl = s.location_url || 'https://maps.app.goo.gl/qctSRFkG37zZDRdq9';
+    const storefrontImg = s.storefront_image || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80';
 
     const t = TRANSLATIONS[this.currentLang];
+
+    const displayTagline = tagline === tagline.toUpperCase()
+      ? tagline.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
+      : tagline;
 
     // Create root element for customer portal
     const root = document.createElement('div');
@@ -187,17 +197,17 @@ export class CustomerHome {
         </div>
       </nav>
 
-      <!-- HERO – Sabro style: photo top + big name on red section -->
+      <!-- HERO – Custom overlay directly on image -->
       <section class="c-hero" id="c-hero">
         <!-- Full-bleed food photo -->
         <img class="c-hero__photo" src="${heroImg}" alt="${storeName} hero" id="hero-bg-img" />
 
-        <!-- Dark red bottom section with big name -->
-        <div class="c-hero__bottom">
-          <h1 class="c-hero__name">
-            ${storeName}
-          </h1>
-          <p class="c-hero__tagline">✦ ${tagline} ✦</p>
+        <!-- Overlay container sitting directly on the image -->
+        <div class="c-hero__overlay">
+          <div class="c-hero__title-container">
+            <span class="c-hero__tagline-script">${displayTagline}</span>
+            <h1 class="c-hero__name">${storeName}</h1>
+          </div>
         </div>
       </section>
 
@@ -250,6 +260,11 @@ export class CustomerHome {
 
       <!-- FOOTER -->
       <footer class="c-footer" id="c-footer">
+        ${storefrontImg ? `
+          <div class="c-footer__storefront">
+            <img src="${storefrontImg}" alt="Storefront" />
+          </div>
+        ` : ''}
         <div class="c-footer__logo">${storeName.split(' ')[0]}<span>${storeName.split(' ')[1] || ''}</span></div>
         <div class="c-footer__sub">${tagline}</div>
         <div class="c-footer__divider"></div>
@@ -309,8 +324,20 @@ export class CustomerHome {
             <i class="fas fa-search c-menu-drawer__search-icon"></i>
             <input type="text" id="menu-search-input" placeholder="${t.searchPlaceholder}" />
           </div>
+          <div class="c-menu-categories-scroll" id="menu-categories-scroll"></div>
           <div class="c-menu-drawer__items-container" id="menu-categories-container">
             ${this._renderMenuSections(this.menus)}
+          </div>
+          
+          <!-- Floating Cart Bar inside menu drawer -->
+          <div class="c-drawer-cart-bar" id="drawer-cart-bar" style="display:none">
+            <div class="c-drawer-cart-bar__info">
+              <i class="fas fa-shopping-bag"></i>
+              <span id="drawer-cart-bar-text"></span>
+            </div>
+            <button class="c-drawer-cart-bar__btn" id="drawer-cart-view-btn">
+              ดูตะกร้า <i class="fas fa-chevron-right"></i>
+            </button>
           </div>
         </div>
       </div>
@@ -375,6 +402,52 @@ export class CustomerHome {
           <button class="c-modal-btn secondary" id="staff-cancel-btn">${t.close}</button>
         </div>
       </div>
+
+      <!-- iOS-STYLE FOOD DETAIL MODAL (Bottom Sheet view) -->
+      <div class="c-detail-modal" id="detail-modal" style="display:none">
+        <div class="c-detail-modal__sheet">
+          <div class="c-detail-modal__handle"></div>
+          
+          <div class="c-detail-modal__banner">
+            <button class="c-detail-modal__close-btn" id="detail-modal-close-btn" aria-label="Close">
+              <i class="fas fa-chevron-left"></i>
+            </button>
+            <button class="c-detail-modal__like-btn like-btn" id="detail-modal-like-btn" aria-label="Like">
+              <i class="far fa-heart"></i>
+            </button>
+            <div class="c-detail-modal__img-wrapper">
+              <img id="detail-modal-img" src="" alt="Food Preview" />
+            </div>
+          </div>
+
+          <div class="c-detail-modal__body">
+            <div class="c-detail-modal__meta-row">
+              <div>
+                <h2 class="c-detail-modal__title" id="detail-modal-title"></h2>
+                <span class="c-detail-modal__tag" id="detail-modal-tag"></span>
+              </div>
+              <div class="c-detail-modal__price" id="detail-modal-price"></div>
+            </div>
+
+            <div class="c-detail-modal__tab-content">
+              <div class="c-detail-tab-panel" id="detail-panel-desc">
+                <p id="detail-modal-desc-text" style="margin-top: 0.5rem;"></p>
+              </div>
+            </div>
+          </div>
+
+          <div class="c-detail-modal__actions">
+            <div class="c-qty-selector">
+              <button class="c-qty-btn" id="detail-qty-minus-btn">-</button>
+              <span class="c-qty-value" id="detail-qty-value">1</span>
+              <button class="c-qty-btn" id="detail-qty-plus-btn">+</button>
+            </div>
+            <button class="c-detail-add-btn" id="detail-add-to-cart-btn">
+              <i class="fas fa-shopping-bag"></i> ใส่ตะกร้า
+            </button>
+          </div>
+        </div>
+      </div>
     `;
 
     this.container.innerHTML = '';
@@ -392,6 +465,28 @@ export class CustomerHome {
     return menus.map(m => {
       const displayName = this.currentLang === 'th' ? m.name_th : m.name_en;
       const displayCategory = this.currentLang === 'th' ? m.category_name_th : m.category_name_en;
+      const isLiked = this.likedItems.includes(m.id);
+      
+      const cartItem = this.cart.find(i => i.id === m.id);
+      const cartQty = cartItem ? cartItem.qty : 0;
+      
+      let footerActionHTML = '';
+      if (cartQty > 0) {
+        footerActionHTML = `
+          <div class="c-menu-card__qty-controls">
+            <button class="c-menu-card__qty-btn minus-cart-btn" data-id="${m.id}">-</button>
+            <span class="c-menu-card__qty-val">${cartQty}</span>
+            <button class="c-menu-card__qty-btn plus-cart-btn" data-id="${m.id}" data-price="${m.price}" data-name="${displayName}">+</button>
+          </div>
+        `;
+      } else {
+        footerActionHTML = `
+          <button class="c-menu-card__add-btn add-to-cart-btn"
+            data-id="${m.id}" data-price="${m.price}" data-name="${displayName}"
+            aria-label="เพิ่ม ${displayName} ลงตะกร้า">+</button>
+        `;
+      }
+
       return `
         <div class="c-menu-card fade-in-up" data-menu-id="${m.id}" data-menu-price="${m.price}" data-menu-name="${displayName}">
           <div class="c-menu-card__img-container">
@@ -399,15 +494,18 @@ export class CustomerHome {
               ? `<img src="${m.image_url}" alt="${displayName}" loading="lazy" />`
               : `<div class="c-menu-card__img-placeholder">🌮</div>`
             }
+            <button class="c-menu-card__like-btn like-btn ${isLiked ? 'active' : ''}" data-id="${m.id}" aria-label="ถูกใจ">
+              <i class="${isLiked ? 'fas' : 'far'} fa-heart"></i>
+            </button>
           </div>
           <div class="c-menu-card__details">
             <div class="c-menu-card__name">${displayName}</div>
-            <div class="c-menu-card__tag">${displayCategory}</div>
+            <div class="c-menu-card__tag">
+              ${displayCategory} · <i class="fas fa-heart" style="color:var(--red); font-size:0.6rem;"></i> <span class="c-card-like-count-${m.id}">${m.likes_count || 0}</span>
+            </div>
             <div class="c-menu-card__footer">
               <span class="c-menu-card__price">฿ ${Number(m.price).toLocaleString()}</span>
-              <button class="c-menu-card__add-btn add-to-cart-btn"
-                data-id="${m.id}" data-price="${m.price}" data-name="${displayName}"
-                aria-label="เพิ่ม ${displayName} ลงตะกร้า">+</button>
+              ${footerActionHTML}
             </div>
           </div>
         </div>
@@ -576,7 +674,7 @@ export class CustomerHome {
     // Opening Hours Toast
     document.getElementById('dock-hours-btn')?.addEventListener('click', () => {
       const toast = document.getElementById('toast-el');
-      const hoursText = this.settings.opening_hours || (this.currentLang === 'th' ? 'ทุกวัน 11:00 - 22:00' : 'Daily 11:00 AM - 10:00 PM');
+      const hoursText = this.settings.opening_hours || (this.currentLang === 'th' ? '11:00 - 19:00 ปิดทุกวันอังคาร แนะนำให้โทรจองก่อนทุกครั้ง' : '11:00 AM - 7:00 PM, Closed Tuesdays. Booking recommended.');
       const toastPrefix = TRANSLATIONS[this.currentLang].toastHours;
       
       if (toast) {
@@ -636,8 +734,11 @@ export class CustomerHome {
       drawer.style.display = 'flex';
       drawer.getBoundingClientRect(); // reflow
       drawer.classList.add('open');
+      this._activeCategoryFilter = 'all';
+      this._renderCategoryPills();
       this._refreshMenuDrawer();
       this._trackEvent('open_menu_drawer', { ts: Date.now() });
+      this._updateBodyScrollLock();
     }
   }
 
@@ -647,22 +748,33 @@ export class CustomerHome {
       drawer.classList.remove('open');
       setTimeout(() => {
         drawer.style.display = 'none';
+        this._updateBodyScrollLock();
       }, 400);
       this._trackEvent('close_menu_drawer', { ts: Date.now() });
+      this._updateBodyScrollLock();
     }
   }
-
   _refreshMenuDrawer() {
     const q = document.getElementById('menu-search-input')?.value.trim() || '';
     const container = document.getElementById('menu-categories-container');
     if (!container) return;
 
-    if (!q) {
-      container.innerHTML = this._renderMenuSections(this.menus);
-    } else {
-      const filtered = this.menus.filter(m => m.name.toLowerCase().includes(q.toLowerCase()));
-      container.innerHTML = this._renderMenuSections(filtered);
+    let items = this.menus;
+
+    // Filter by category first
+    if (this._activeCategoryFilter && this._activeCategoryFilter !== 'all') {
+      items = items.filter(m => (m.category_id || 'others') === this._activeCategoryFilter);
     }
+
+    // Filter by search query
+    if (q) {
+      items = items.filter(m => {
+        const displayName = this.currentLang === 'th' ? m.name_th : m.name_en;
+        return displayName.toLowerCase().includes(q.toLowerCase());
+      });
+    }
+
+    container.innerHTML = this._renderMenuSections(items);
     this._initScrollAnimations();
   }
 
@@ -764,8 +876,20 @@ export class CustomerHome {
       const id = btn.dataset.id;
       const price = parseFloat(btn.dataset.price);
       const name = btn.dataset.name;
-      this._addToCart(id, price, name);
+      this._addToCart(id, price, name, 1);
+      this._animateFlyToCart(btn, 1);
       this._trackEvent('add_to_cart', { menu_id: id, price, ts: Date.now() });
+    });
+
+    // Like/Heart button toggle (event delegation for both card and detail modal)
+    document.addEventListener('click', e => {
+      const btn = e.target.closest('.like-btn');
+      if (!btn) return;
+      e.stopPropagation(); // Prevent card click / detail modal open when tapping heart
+      const id = btn.dataset.id;
+      if (id) {
+        this._toggleLikeItem(id);
+      }
     });
 
     // Open cart via main dock button
@@ -788,21 +912,135 @@ export class CustomerHome {
       this._closeCartModal();
       this._checkout();
     });
+
+    // Drawer cart view button handler (transitions smoothly from drawer to cart)
+    document.getElementById('drawer-cart-view-btn')?.addEventListener('click', () => {
+      this._closeMenuDrawer();
+      setTimeout(() => {
+        this._openCartModal();
+      }, 350);
+    });
+
+    // Cart items quantity adjustment event delegation (+ / - buttons)
+    document.getElementById('cart-items-list')?.addEventListener('click', e => {
+      const btn = e.target.closest('.c-cart-qty-btn');
+      if (!btn) return;
+      const id = btn.dataset.id;
+      const isPlus = btn.classList.contains('plus');
+      this._changeCartItemQty(id, isPlus ? 1 : -1);
+    });
+
+    // Card-level plus quantity adjustment
+    document.addEventListener('click', e => {
+      const btn = e.target.closest('.plus-cart-btn');
+      if (!btn) return;
+      const id = btn.dataset.id;
+      const price = parseFloat(btn.dataset.price);
+      const name = btn.dataset.name;
+      this._addToCart(id, price, name, 1);
+      this._animateFlyToCart(btn, 1);
+      this._trackEvent('add_to_cart_card', { menu_id: id, price, ts: Date.now() });
+    });
+
+    // Card-level minus quantity adjustment
+    document.addEventListener('click', e => {
+      const btn = e.target.closest('.minus-cart-btn');
+      if (!btn) return;
+      const id = btn.dataset.id;
+      this._changeCartItemQty(id, -1);
+      this._trackEvent('remove_to_cart_card', { menu_id: id, ts: Date.now() });
+    });
   }
 
-  _addToCart(id, price, name) {
+  _addToCart(id, price, name, qty = 1) {
     const itemData = this.menus.find(m => m.id === id);
     const existing = this.cart.find(i => i.id === id);
     if (existing) {
-      existing.qty++;
+      existing.qty += qty;
     } else {
       this.cart.push({
         id,
         price,
         name_th: itemData ? itemData.name_th : name,
         name_en: itemData ? itemData.name_en : name,
-        qty: 1
+        qty: qty
       });
+    }
+    this._updateCartUI();
+  }
+
+  _toggleLikeItem(itemId) {
+    const index = this.likedItems.indexOf(itemId);
+    const wasLiked = index !== -1;
+    const delta = wasLiked ? -1 : 1;
+    
+    if (wasLiked) {
+      this.likedItems.splice(index, 1);
+    } else {
+      this.likedItems.push(itemId);
+    }
+    
+    try {
+      localStorage.setItem('meinlicht_likes', JSON.stringify(this.likedItems));
+    } catch (e) {
+      console.warn('Failed to save likes to localStorage:', e);
+    }
+    
+    this._trackEvent('toggle_like', { menu_id: itemId, liked: !wasLiked, ts: Date.now() });
+    
+    // Database sync via RPC
+    supabase.rpc('adjust_menu_item_likes', { item_id: itemId, increment_val: delta })
+      .then(({ error }) => {
+        if (error) console.error('Failed to sync likes to database:', error);
+      });
+
+    // Update in-memory menu likes_count
+    const menuItem = this.menus.find(m => m.id === itemId);
+    if (menuItem) {
+      menuItem.likes_count = Math.max(0, (menuItem.likes_count || 0) + delta);
+    }
+
+    const isNowLiked = !wasLiked;
+    
+    // Update DOM counts on cards
+    document.querySelectorAll(`.c-card-like-count-${itemId}`).forEach(el => {
+      let currentVal = parseInt(el.textContent) || 0;
+      el.textContent = Math.max(0, currentVal + delta);
+    });
+
+    // Update DOM count in detail modal if open
+    const detailLikeCount = document.getElementById('detail-modal-like-count');
+    if (detailLikeCount && this._selectedDetailItem && this._selectedDetailItem.id === itemId) {
+      let currentVal = parseInt(detailLikeCount.textContent) || 0;
+      detailLikeCount.textContent = Math.max(0, currentVal + delta);
+    }
+
+    // Update all matching buttons
+    document.querySelectorAll(`.like-btn[data-id="${itemId}"]`).forEach(btn => {
+      btn.classList.toggle('active', isNowLiked);
+      const icon = btn.querySelector('i');
+      if (icon) {
+        icon.className = isNowLiked ? 'fas fa-heart' : 'far fa-heart';
+      }
+      
+      // Trigger spring pulse animation
+      if (isNowLiked) {
+        btn.classList.remove('liked-animation');
+        btn.getBoundingClientRect(); // reflow
+        btn.classList.add('liked-animation');
+      } else {
+        btn.classList.remove('liked-animation');
+      }
+    });
+  }
+
+  _changeCartItemQty(id, delta) {
+    const existing = this.cart.find(i => i.id === id);
+    if (existing) {
+      existing.qty += delta;
+      if (existing.qty <= 0) {
+        this.cart = this.cart.filter(i => i.id !== id);
+      }
     }
     this._updateCartUI();
   }
@@ -823,30 +1061,85 @@ export class CustomerHome {
     const navBtn = document.getElementById('cart-nav-btn');
     navBtn?.classList.toggle('has-items', count > 0);
 
-    // Render cart items (multilingual)
+    // Update drawer floating cart bar
+    const drawerCartBar = document.getElementById('drawer-cart-bar');
+    const drawerCartBarText = document.getElementById('drawer-cart-bar-text');
+    if (drawerCartBar) {
+      if (count > 0) {
+        drawerCartBar.style.display = 'flex';
+        if (drawerCartBarText) {
+          drawerCartBarText.innerHTML = this.currentLang === 'th'
+            ? `มี <strong>${count}</strong> รายการในตะกร้า (<strong>฿ ${total.toLocaleString()}</strong>)`
+            : `<strong>${count}</strong> items in cart (<strong>฿ ${total.toLocaleString()}</strong>)`;
+        }
+      } else {
+        drawerCartBar.style.display = 'none';
+      }
+    }
+
+    // Render cart items (multilingual & interactive)
     const t = TRANSLATIONS[this.currentLang];
     document.getElementById('cart-items-list').innerHTML = this.cart.map(i => {
       const displayName = this.currentLang === 'th' ? i.name_th : i.name_en;
       return `
         <div class="c-cart-item">
-          <div>
+          <div class="c-cart-item__info">
             <div class="c-cart-item__name">${displayName}</div>
-            <div class="c-cart-item__qty">x${i.qty}</div>
+            <div class="c-cart-item__price">฿ ${Number(i.price).toLocaleString()}</div>
           </div>
-          <div class="c-cart-item__price">฿ ${(i.price * i.qty).toLocaleString()}</div>
+          <div class="c-cart-item__actions">
+            <div class="c-cart-qty-selector">
+              <button class="c-cart-qty-btn minus" data-id="${i.id}">-</button>
+              <span class="c-cart-qty-value">${i.qty}</span>
+              <button class="c-cart-qty-btn plus" data-id="${i.id}">+</button>
+            </div>
+            <div class="c-cart-item__total-price">฿ ${(i.price * i.qty).toLocaleString()}</div>
+          </div>
         </div>
       `;
     }).join('') || `<div class="c-empty" style="padding:1.25rem 0"><i class="fas fa-shopping-bag"></i>${t.emptyCart}</div>`;
+
+    // Update DOM quantity controls on cards inline (preserves scroll position!)
+    this.menus.forEach(m => {
+      const cards = document.querySelectorAll(`.c-menu-card[data-menu-id="${m.id}"]`);
+      const cartItem = this.cart.find(i => i.id === m.id);
+      const cartQty = cartItem ? cartItem.qty : 0;
+      const displayName = this.currentLang === 'th' ? m.name_th : m.name_en;
+
+      cards.forEach(card => {
+        const footer = card.querySelector('.c-menu-card__footer');
+        if (!footer) return;
+
+        if (cartQty > 0) {
+          footer.innerHTML = `
+            <span class="c-menu-card__price">฿ ${Number(m.price).toLocaleString()}</span>
+            <div class="c-menu-card__qty-controls">
+              <button class="c-menu-card__qty-btn minus-cart-btn" data-id="${m.id}">-</button>
+              <span class="c-menu-card__qty-val">${cartQty}</span>
+              <button class="c-menu-card__qty-btn plus-cart-btn" data-id="${m.id}" data-price="${m.price}" data-name="${displayName}">+</button>
+            </div>
+          `;
+        } else {
+          footer.innerHTML = `
+            <span class="c-menu-card__price">฿ ${Number(m.price).toLocaleString()}</span>
+            <button class="c-menu-card__add-btn add-to-cart-btn"
+              data-id="${m.id}" data-price="${m.price}" data-name="${displayName}"
+              aria-label="เพิ่ม ${displayName} ลงตะกร้า">+</button>
+          `;
+        }
+      });
+    });
   }
 
   _openCartModal() {
     document.getElementById('cart-modal').classList.add('open');
+    this._updateBodyScrollLock();
   }
 
   _closeCartModal() {
     document.getElementById('cart-modal').classList.remove('open');
+    this._updateBodyScrollLock();
   }
-
   // ──────────────────────────────────────────────
   // CHECKOUT FLOW
   // ──────────────────────────────────────────────
@@ -940,12 +1233,33 @@ export class CustomerHome {
   // ──────────────────────────────────────────────
   _openModal(id) {
     const m = document.getElementById(id);
-    if (m) { m.classList.add('open'); }
+    if (m) {
+      m.classList.add('open');
+      this._updateBodyScrollLock();
+    }
   }
 
   _closeModal(id) {
     const m = document.getElementById(id);
-    if (m) { m.classList.remove('open'); }
+    if (m) {
+      m.classList.remove('open');
+      this._updateBodyScrollLock();
+    }
+  }
+
+  _updateBodyScrollLock() {
+    const isMenuOpen = document.getElementById('menu-drawer')?.classList.contains('open');
+    const isCartOpen = document.getElementById('cart-modal')?.classList.contains('open');
+    const isDetailOpen = document.getElementById('detail-modal')?.style.display === 'flex';
+    const isGuestOpen = document.getElementById('guest-modal')?.classList.contains('open');
+    const isOtpOpen = document.getElementById('otp-modal')?.classList.contains('open');
+    const isStaffOpen = document.getElementById('staff-modal')?.classList.contains('open');
+
+    if (isMenuOpen || isCartOpen || isDetailOpen || isGuestOpen || isOtpOpen || isStaffOpen) {
+      document.body.classList.add('no-scroll');
+    } else {
+      document.body.classList.remove('no-scroll');
+    }
   }
 
   _trackEvent(type, data) {
@@ -963,6 +1277,356 @@ export class CustomerHome {
     }, { threshold: 0.15 });
 
     document.querySelectorAll('.fade-in-up').forEach(el => observer.observe(el));
+  }
+
+  // ──────────────────────────────────────────────
+  // FOOD DETAIL MODAL (iOS Bottom Sheet Style)
+  // ──────────────────────────────────────────────
+  _initDetailModal() {
+    this._selectedDetailItem = null;
+    this._detailQty = 1;
+
+    // Open detail modal when clicking a menu card (excluding add-to-cart "+" button)
+    document.addEventListener('click', e => {
+      if (e.target.closest('.add-to-cart-btn')) return;
+      const card = e.target.closest('.c-menu-card');
+      if (!card) return;
+      const id = card.dataset.menuId;
+      if (id) {
+        this._openDetailModal(id);
+      }
+    });
+
+    // Close button
+    document.getElementById('detail-modal-close-btn')?.addEventListener('click', () => {
+      this._closeDetailModal();
+    });
+
+    // Close on overlay click
+    document.getElementById('detail-modal')?.addEventListener('click', e => {
+      if (e.target === document.getElementById('detail-modal')) {
+        this._closeDetailModal();
+      }
+    });
+
+    // Tabs
+    document.getElementById('detail-tab-desc-btn')?.addEventListener('click', () => {
+      this._toggleDetailTab('desc');
+    });
+    document.getElementById('detail-tab-reviews-btn')?.addEventListener('click', () => {
+      this._toggleDetailTab('reviews');
+    });
+
+    // Qty adjust
+    document.getElementById('detail-qty-minus-btn')?.addEventListener('click', () => {
+      this._detailQty--;
+      if (this._detailQty < 1) this._detailQty = 1;
+      document.getElementById('detail-qty-value').textContent = this._detailQty;
+    });
+    document.getElementById('detail-qty-plus-btn')?.addEventListener('click', () => {
+      this._detailQty++;
+      document.getElementById('detail-qty-value').textContent = this._detailQty;
+    });
+
+    // Add to cart from detail modal
+    document.getElementById('detail-add-to-cart-btn')?.addEventListener('click', () => {
+      if (!this._selectedDetailItem) return;
+      const item = this._selectedDetailItem;
+      const displayName = this.currentLang === 'th' ? item.name_th : item.name_en;
+      this._addToCart(item.id, item.price, displayName, this._detailQty);
+      
+      // Trigger fly animation
+      const startEl = document.getElementById('detail-modal-img') || document.getElementById('detail-add-to-cart-btn');
+      this._animateFlyToCart(startEl, this._detailQty);
+
+      // Track event
+      this._trackEvent('add_to_cart_detail', { menu_id: item.id, qty: this._detailQty, price: item.price, ts: Date.now() });
+
+      // Toast feedback
+      const toast = document.getElementById('toast-el');
+      if (toast) {
+        toast.textContent = this.currentLang === 'th' 
+          ? `🛍 เพิ่ม ${displayName} (${this._detailQty} ชิ้น) ลงตะกร้าแล้ว!`
+          : `🛍 Added ${displayName} (${this._detailQty} items) to cart!`;
+        toast.classList.add('show');
+        clearTimeout(this._toastTimeout);
+        this._toastTimeout = setTimeout(() => { toast.classList.remove('show'); }, 3000);
+      }
+
+      this._closeDetailModal();
+    });
+  }
+
+  _openDetailModal(itemId) {
+    const item = this.menus.find(m => m.id === itemId);
+    if (!item) return;
+
+    this._selectedDetailItem = item;
+    this._detailQty = 1;
+
+    // Elements
+    const modal = document.getElementById('detail-modal');
+    const img = document.getElementById('detail-modal-img');
+    const title = document.getElementById('detail-modal-title');
+    const tag = document.getElementById('detail-modal-tag');
+    const price = document.getElementById('detail-modal-price');
+    const descText = document.getElementById('detail-modal-desc-text');
+    const qtyVal = document.getElementById('detail-qty-value');
+
+    // Populate data
+    const displayName = this.currentLang === 'th' ? item.name_th : item.name_en;
+    const displayCategory = this.currentLang === 'th' ? item.category_name_th : item.category_name_en;
+
+    title.textContent = displayName;
+    tag.innerHTML = `${displayCategory} · <i class="fas fa-heart" style="color:var(--red); font-size:0.65rem;"></i> <span id="detail-modal-like-count">${item.likes_count || 0}</span>`;
+    price.textContent = `฿ ${Number(item.price).toLocaleString()}`;
+    qtyVal.textContent = '1';
+
+    if (item.image_url) {
+      img.src = item.image_url;
+      img.style.display = 'block';
+    } else {
+      img.style.display = 'none';
+    }
+
+    // Dynamic Mock Description based on item name
+    descText.textContent = this._getMockDescription(displayName);
+
+    // Sync Like Status on Detail Like Button
+    const likeBtn = document.getElementById('detail-modal-like-btn');
+    if (likeBtn) {
+      likeBtn.dataset.id = itemId;
+      const isLiked = this.likedItems.includes(itemId);
+      likeBtn.classList.toggle('active', isLiked);
+      const icon = likeBtn.querySelector('i');
+      if (icon) {
+        icon.className = isLiked ? 'fas fa-heart' : 'far fa-heart';
+      }
+    }
+
+    // Open Modal
+    if (modal) {
+      modal.style.display = 'flex';
+      this._trackEvent('view_item_details', { menu_id: itemId, ts: Date.now() });
+      this._updateBodyScrollLock();
+    }
+  }
+
+  _closeDetailModal() {
+    const modal = document.getElementById('detail-modal');
+    if (modal) {
+      modal.style.display = 'none';
+    }
+    this._selectedDetailItem = null;
+    this._updateBodyScrollLock();
+  }
+  _getMockDescription(name) {
+    const isThai = this.currentLang === 'th';
+    const n = name.toLowerCase();
+
+    if (n.includes('ผัดไทย') || n.includes('pad thai')) {
+      return isThai
+        ? 'ผัดไทยสูตรพิเศษของร้าน เส้นจันท์เหนียวนุ่มผัดด้วยซอสมะขามเข้มข้นสูตรโบราณ รสชาติกลมกล่อมเปรี้ยวหวานเค็ม ครบสามรส เสิร์ฟพร้อมกุ้งสดตัวโตและผักเครื่องเคียงสดกรอบ'
+        : 'Our signature Pad Thai. Chewy rice noodles stir-fried with rich tamarind sauce, fresh prawns, tofu, bean sprouts, and crushed peanuts for the perfect balance of sweet, sour, and savory flavors.';
+    }
+    if (n.includes('ข้าวผัด') || n.includes('fried rice')) {
+      return isThai
+        ? 'ข้าวผัดร้อนๆ ผัดกระทะไฟแรงจนเม็ดข้าวร่วนสวย มีกลิ่นหอมกระทะอันเป็นเอกลักษณ์ ผัดคลุกเคล้ากับวัตถุดิบหลักสดใหม่และต้นหอม รสชาติกลมกล่อมหอมละมุน'
+        : 'Fragrant jasmine rice stir-fried over high heat with egg, fresh scallions, and your choice of protein, seasoned to perfection with a light smoky wok aroma.';
+    }
+    if (n.includes('กะเพรา') || n.includes('basil')) {
+      return isThai
+        ? 'กะเพราแท้รสจัดจ้าน ผัดพริกแห้งและกระเทียมจนหอมฟุ้ง คลุกเคล้าใบกะเพราป่ากลิ่นฉุนร้อนแรง ทานคู่กับข้าวสวยร้อนๆ และไข่ดาวกรอบขอบเจลลี่ แนะนำสำหรับคนชอบรสชาติจัดจ้าน'
+        : 'Authentic fiery Thai basil stir-fry. Sautéed with garlic, fresh chili, and aromatic holy basil leaves. Served with warm jasmine rice and a crispy fried egg.';
+    }
+    if (n.includes('ปีกไก่') || n.includes('chicken wings') || n.includes('ทอด')) {
+      return isThai
+        ? 'ปีกไก่คัดขนาดพิเศษ หมักเครื่องเทศสมุนไพรจนเข้าเนื้อ ทอดในน้ำมันร้อนระอุจนหนังบางกรอบเหลืองทอง แต่เนื้อภายในยังชุ่มฉ่ำนุ่มละมุน เสิร์ฟคู่ซอสสูตรเด็ด'
+        : 'Crispy fried chicken wings marinated in local herbs and spices, fried to a perfect golden crunch while remaining tender and juicy on the inside. Served with dipping sauce.';
+    }
+    if (n.includes('ชา') || n.includes('tea') || n.includes('นม') || n.includes('น้ำ')) {
+      return isThai
+        ? 'เครื่องดื่มรสละมุนคัดสรรวัตถุดิบเกรดพรีเมียม ชงสดใหม่ทุกแก้ว รสชาติหวานมันกำลังดี เติมความสดชื่นและกระปรี้กระเปร่าระหว่างวันได้อย่างดีเยี่ยม'
+        : 'A refreshing premium beverage made from high-quality ingredients, freshly brewed per order. Perfectly balanced sweetness to cool you down and boost your day.';
+    }
+
+    return isThai
+      ? `เมนูแนะนำยอดนิยมของร้าน Mein Licht! คัดสรรเฉพาะวัตถุดิบชั้นดีที่สะอาดสดใหม่ นำมาปรุงสดแก้วต่อแก้ว/จานต่อจานอย่างพิถีพิถันเพื่อมอบรสชาติที่ดีที่สุดแก่คุณ`
+      : `Popular recommended menu by Mein Licht! Crafted meticulously with handpicked fresh, clean ingredients to deliver the ultimate flavor profile in every serving.`;
+  }
+
+  _getMockReviewsHTML(name) {
+    const isThai = this.currentLang === 'th';
+    const reviews = [
+      {
+        author: isThai ? 'คุณพิชิตพล (Pichitpon)' : 'Pichitpon K.',
+        stars: '★★★★★',
+        text: isThai 
+          ? `อร่อยสมมงร้าน meinlicht ครับ! เมนู ${name} นี้วัตถุดิบสดสะอาดมาก รสชาติกลมกล่อมกลิ่นหอมชวนทาน แนะนำอย่างยิ่ง!`
+          : `Delicious and high-quality! The ${name} was fresh, well-seasoned, and aromatic. Definitely a must-try!`
+      },
+      {
+        author: isThai ? 'Aria Rose' : 'Aria Rose',
+        stars: '★★★★☆',
+        text: isThai
+          ? `ประทับใจความเร็วในการเสิร์ฟและรสชาติของ ${name} ค่ะ แพ็กเกจสะอาดเรียบร้อย อร่อยกลมกล่อมดีมาก`
+          : `Really impressed with the speed and taste of this ${name}. Clean packaging and great flavor balance.`
+      }
+    ];
+
+    return reviews.map(r => `
+      <div class="c-review-card">
+        <div class="c-review-card__header">
+          <span class="c-review-card__author">${r.author}</span>
+          <span class="c-review-card__stars">${r.stars}</span>
+        </div>
+        <p class="c-review-card__text">${r.text}</p>
+      </div>
+    `).join('');
+  }
+
+  _getUniqueCategories() {
+    const catsMap = {};
+    this.menus.forEach(m => {
+      const catId = m.category_id || 'others';
+      if (!catsMap[catId]) {
+        catsMap[catId] = {
+          id: catId,
+          name_th: m.category_name_th || 'อื่นๆ',
+          name_en: m.category_name_en || 'Others',
+          sort_order: m.sort_order !== undefined ? m.sort_order : 999
+        };
+      }
+    });
+    return Object.values(catsMap).sort((a, b) => a.sort_order - b.sort_order);
+  }
+
+  _renderCategoryPills() {
+    const container = document.getElementById('menu-categories-scroll');
+    if (!container) return;
+
+    const categories = this._getUniqueCategories();
+    const isTh = this.currentLang === 'th';
+
+    const allLabel = isTh ? 'ทั้งหมด' : 'All';
+    let html = `
+      <button class="c-category-pill ${this._activeCategoryFilter === 'all' ? 'active' : ''}" data-cat-id="all">
+        ${allLabel}
+      </button>
+    `;
+
+    categories.forEach(cat => {
+      const label = isTh ? cat.name_th : cat.name_en;
+      html += `
+        <button class="c-category-pill ${this._activeCategoryFilter === cat.id ? 'active' : ''}" data-cat-id="${cat.id}">
+          ${label}
+        </button>
+      `;
+    });
+
+    container.innerHTML = html;
+
+    // Attach click events
+    container.querySelectorAll('.c-category-pill').forEach(btn => {
+      btn.onclick = () => {
+        this._activeCategoryFilter = btn.dataset.catId;
+        // Update active class
+        container.querySelectorAll('.c-category-pill').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this._refreshMenuDrawer();
+        
+        // Scroll active pill into view smoothly
+        btn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      };
+    });
+  }
+
+  _animateFlyToCart(startEl, qty = 1) {
+    if (!startEl) return;
+    
+    // Target element: bottom dock cart button wrapper or drawer cart bar
+    const drawer = document.getElementById('menu-drawer');
+    let targetEl = document.getElementById('open-cart-btn');
+    if (drawer && drawer.classList.contains('open')) {
+      const barBtn = document.getElementById('drawer-cart-bar');
+      if (barBtn && barBtn.style.display !== 'none') {
+        targetEl = barBtn;
+      }
+    }
+    if (!targetEl) return;
+    
+    const startRect = startEl.getBoundingClientRect();
+    const targetRect = targetEl.getBoundingClientRect();
+    
+    // Create fly element
+    const flyEl = document.createElement('div');
+    flyEl.className = 'c-fly-to-cart';
+    flyEl.innerHTML = `+${qty}`;
+    
+    // Position it centered on start element
+    const startX = startRect.left + (startRect.width / 2) - 16;
+    const startY = startRect.top + (startRect.height / 2) - 16;
+    
+    flyEl.style.left = `${startX}px`;
+    flyEl.style.top = `${startY}px`;
+    flyEl.style.transform = 'scale(1)';
+    
+    document.body.appendChild(flyEl);
+    
+    // Force layout reflow
+    flyEl.getBoundingClientRect();
+    
+    // Target position coordinates
+    const targetX = targetRect.left + (targetRect.width / 2) - 16;
+    const targetY = targetRect.top + (targetRect.height / 2) - 16;
+    
+    // Transition styles
+    flyEl.style.left = `${targetX}px`;
+    flyEl.style.top = `${targetY}px`;
+    flyEl.style.transform = 'scale(0.15)';
+    flyEl.style.opacity = '0.2';
+    
+    // Remove element on transition end & trigger pulse effects
+    flyEl.addEventListener('transitionend', () => {
+      flyEl.remove();
+      
+      const cartWrapper = document.getElementById('open-cart-btn');
+      const cartBadge = document.getElementById('cart-dock-count');
+      const cartNavBtn = document.getElementById('cart-nav-btn');
+      const drawerCartBar = document.getElementById('drawer-cart-bar');
+      
+      // Pulse drawer cart bar
+      if (drawerCartBar && drawerCartBar.style.display !== 'none') {
+        drawerCartBar.classList.remove('pulse-dock');
+        drawerCartBar.getBoundingClientRect();
+        drawerCartBar.classList.add('pulse-dock');
+        setTimeout(() => drawerCartBar.classList.remove('pulse-dock'), 400);
+      }
+      
+      // Pulse bottom dock cart button
+      if (cartWrapper) {
+        cartWrapper.classList.remove('pulse-dock');
+        cartWrapper.getBoundingClientRect();
+        cartWrapper.classList.add('pulse-dock');
+        setTimeout(() => cartWrapper.classList.remove('pulse-dock'), 400);
+      }
+      
+      // Pulse cart badge
+      if (cartBadge) {
+        cartBadge.classList.remove('pulse-badge');
+        cartBadge.getBoundingClientRect();
+        cartBadge.classList.add('pulse-badge');
+        setTimeout(() => cartBadge.classList.remove('pulse-badge'), 400);
+      }
+
+      // Pulse top navigation cart icon too!
+      if (cartNavBtn) {
+        cartNavBtn.classList.remove('pulse-badge');
+        cartNavBtn.getBoundingClientRect();
+        cartNavBtn.classList.add('pulse-badge');
+        setTimeout(() => cartNavBtn.classList.remove('pulse-badge'), 400);
+      }
+    });
   }
 }
 

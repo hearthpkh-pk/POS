@@ -55,7 +55,7 @@ export class AdminSettings {
     // Group settings by section
     const sections = {
       '🏪 ข้อมูลร้าน': ['store_name', 'tagline', 'established', 'location', 'store_phone', 'location_url', 'opening_hours'],
-      '🖼 รูปหน้าปก (Hero)': ['hero_image', 'hero_logo'],
+      '🖼 รูปหน้าปก (Hero)': ['hero_image', 'hero_logo', 'storefront_image'],
       '📝 เนื้อหา About': ['about_1_title', 'about_1_desc', 'about_2_title', 'about_2_desc', 'about_3_title', 'about_3_desc'],
       '✨ เมนูแนะนำ & โปรโมชัน (8 ช่อง)': ['gallery_1', 'gallery_2', 'gallery_3', 'gallery_4', 'gallery_5', 'gallery_6', 'gallery_7', 'gallery_8'],
     };
@@ -270,16 +270,17 @@ export class AdminSettings {
     const labels = {
       'store_phone': 'เบอร์โทรศัพท์ติดต่อร้าน',
       'location_url': 'ลิงก์ Google Maps ของร้าน',
-      'opening_hours': 'เวลาเปิด-ปิดร้าน (เช่น ทุกวัน 11:00 - 22:00)'
+      'opening_hours': 'เวลาเปิด-ปิดร้าน (เช่น ทุกวัน 11:00 - 22:00)',
+      'storefront_image': 'รูปภาพหน้าร้าน (แสดงท้ายเว็บไซต์)'
     };
     return labels[key] || key;
   }
-
   _getDefaultValue(key) {
     const values = {
-      'store_phone': '081-234-5678',
-      'location_url': 'https://maps.google.com',
-      'opening_hours': 'ทุกวัน 11:00 - 22:00'
+      'store_phone': '064-9288187',
+      'location_url': 'https://maps.app.goo.gl/qctSRFkG37zZDRdq9',
+      'opening_hours': '11:00 - 19:00 ปิดทุกวันอังคาร แนะนำให้โทรจองก่อนทุกครั้ง',
+      'storefront_image': 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80'
     };
     return values[key] || '';
   }

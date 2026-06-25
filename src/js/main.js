@@ -11,13 +11,13 @@ import '../css/components.css';
 console.log('Me POS by Mein Licht - Loading...');
 
 // Determine which portal to load based on URL
-const path = window.location.pathname;
-if (path.includes('customer.html')) {
-  // Customer portal – render CustomerHome directly
-  window.customerHome = new CustomerHome();
-} else {
+const path = window.location.pathname.toLowerCase();
+if (path.includes('pos') || path.includes('admin')) {
   // Employee portal – use App which handles admin/staff views
   window.app = new App();
+} else {
+  // Customer portal – render CustomerHome directly (including root /)
+  window.customerHome = new CustomerHome();
 }
 new StaffLogin();
 
