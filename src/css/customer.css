@@ -171,27 +171,20 @@ body.customer-portal {
 }
 
 .c-hero__name {
-  font-family: 'Titan One', 'Prompt', sans-serif;
-  font-size: clamp(3rem, 15vw, 6.5rem);
-  color: var(--red);
-  -webkit-text-stroke: 8px var(--cream);
-  paint-order: stroke fill;
-  letter-spacing: -0.03em;
-  line-height: 0.95;
+  font-family: 'Bebas Neue', 'Prompt', sans-serif;
+  font-size: clamp(3rem, 12vw, 8.5rem);
+  color: #FFFFFF;
+  letter-spacing: 0.03em;
+  line-height: 1;
   text-align: center;
   margin: 0;
-  margin-top: clamp(-5.5rem, -10vw, -2.5rem);
+  margin-top: clamp(-4.5rem, -8vw, -2rem);
   position: relative;
   z-index: 10;
-  transform: rotate(-3deg);
-  display: inline-block;
-  width: 100%;
-}
-.c-hero__name span {
   display: block;
-  color: var(--gold);
-  -webkit-text-stroke: 8px var(--cream);
-  paint-order: stroke fill;
+  width: 100%;
+  text-shadow: 0 4px 15px rgba(0, 0, 0, 0.35);
+  text-transform: uppercase;
 }
 
 .c-hero__tagline {

@@ -195,8 +195,7 @@ export class CustomerHome {
         <!-- Dark red bottom section with big name -->
         <div class="c-hero__bottom">
           <h1 class="c-hero__name">
-            ${storeName.split(' ')[0]}
-            ${storeName.split(' ')[1] ? `<span>${storeName.split(' ')[1]}</span>` : ''}
+            ${storeName}
           </h1>
           <p class="c-hero__tagline">✦ ${tagline} ✦</p>
         </div>
