@@ -1,15 +1,25 @@
 // Main Entry Point - Me POS by Mein Licht
 import { App } from './core/App.js';
+import { CustomerHome } from './pages/customerHome.js';
+import { StaffLogin } from './pages/staffLogin.js';
 
-// Import styles (Assuming you have these, leaving intact from old main.js)
+// Import styles
 import '../css/main.css';
 import '../css/components.css';
 
 // Log initialization
 console.log('Me POS by Mein Licht - Loading...');
 
-// Instantiate the Application
-window.app = new App();
+// Determine which portal to load based on URL
+const path = window.location.pathname;
+if (path.includes('customer.html')) {
+  // Customer portal – render CustomerHome directly
+  window.customerHome = new CustomerHome();
+} else {
+  // Employee portal – use App which handles admin/staff views
+  window.app = new App();
+}
+new StaffLogin();
 
 // Service Worker registration for PWA
 if ('serviceWorker' in navigator) {

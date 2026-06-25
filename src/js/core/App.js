@@ -4,6 +4,7 @@ import { POSView } from '../views/POSView.js';
 import { AdminDashboardView } from '../views/AdminDashboardView.js';
 import { AdminHistoryView } from '../views/AdminHistoryView.js';
 import { AdminMenuView } from '../views/AdminMenuView.js';
+import { AdminSettings } from '../pages/adminSettings.js';
 import { Utils } from '../utils.js';
 
 export class App {
@@ -19,7 +20,8 @@ export class App {
             pos: new POSView('app-container'),
             dashboard: new AdminDashboardView('app-container'),
             history: new AdminHistoryView('app-container'),
-            menu: new AdminMenuView('app-container')
+            menu: new AdminMenuView('app-container'),
+            settings: null  // lazy-init AdminSettings on demand
         };
 
         // Data Cache
@@ -68,7 +70,8 @@ export class App {
             'pos_orders': document.getElementById('nav-pos-orders'),
             'admin_dashboard': document.getElementById('nav-admin-dashboard'),
             'admin_history': document.getElementById('nav-admin-history'),
-            'admin_menu': document.getElementById('nav-admin-menu')
+            'admin_menu': document.getElementById('nav-admin-menu'),
+            'admin_settings': document.getElementById('nav-admin-settings')
         };
 
         Object.keys(navs).forEach(key => {
@@ -134,6 +137,15 @@ export class App {
             }
             else if (viewName === 'admin_menu') {
                 this.views.menu.render(this.menuData);
+            }
+            else if (viewName === 'admin_settings') {
+                const container = document.getElementById('app-container');
+                if (!this.views.settings) {
+                    this.views.settings = new AdminSettings(container);
+                } else {
+                    this.views.settings.container = container;
+                    await this.views.settings._render();
+                }
             }
         } catch (error) {
             console.error(`Error rendering view ${viewName}:`, error);

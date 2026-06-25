@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>meinlicht - Premium Food App</title>
+    
+    <!-- Meta tags for PWA compatibility -->
+    <meta name="theme-color" content="#9B0A0A">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="description" content="meinlicht Premium Diner Menu PWA Client">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS (for speedy aesthetic layout helpers) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            primary: '#9B0A0A',   /* Rich crimson red from screenshot */
+                            dark: '#7A0505',
+                            light: '#FFF5F5',
+                            accent: '#F2D335',
+                            text: '#2D2D2D',
+                            muted: '#8E8E93'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Outfit', 'Prompt', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Custom Fine-tuning to perfectly match the screenshot design */
+        body {
+            font-family: 'Outfit', 'Prompt', sans-serif;
+            background: radial-gradient(circle at 10% 20%, rgb(90, 8, 8) 0%, rgb(18, 2, 2) 90%);
+        }
+        
+        /* Hide scrollbars but keep functionality */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+
+        /* Simulator Styling */
+        .simulator-outer {
+            box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.7);
+            border: 12px solid #2d2d2d;
+            border-radius: 46px;
+            position: relative;
+        }
+
+        .simulator-notch {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 140px;
+            height: 25px;
+            background: #2d2d2d;
+            border-bottom-left-radius: 18px;
+            border-bottom-right-radius: 18px;
+            z-index: 50;
+        }
+
+        /* Glassmorphism details */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+
+        /* Custom bottom navigation curve simulation */
+        .nav-dock {
+            box-shadow: 0 -8px 30px rgba(155, 10, 10, 0.15);
+            border-top-left-radius: 32px;
+            border-top-right-radius: 32px;
+        }
+
+        /* Food detail top curve image holder */
+        .detail-backdrop {
+            border-bottom-left-radius: 48px;
+            border-bottom-right-radius: 48px;
+            background: linear-gradient(135deg, #9B0A0A 0%, #680505 100%);
+        }
+
+        /* Animation transitions */
+        .view-slide {
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease;
+        }
+
+        /* Micro-interactions */
+        .active-scale:active {
+            transform: scale(0.95);
+        }
+        
+        /* Heart pulse animation */
+        @keyframes pulse-heart {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.25); }
+            100% { transform: scale(1); }
+        }
+        .liked-animation {
+            animation: pulse-heart 0.3s ease-out;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4 md:p-8 overflow-x-hidden text-brand-text">
+
+    <!-- Top Branding & Info (Outside Simulator) -->
+    <div class="text-center mb-6 text-white max-w-lg">
+        <h1 class="text-3xl font-bold tracking-wider text-brand-accent flex items-center justify-center gap-2">
+            <svg class="w-8 h-8 fill-brand-accent animate-bounce" viewBox="0 0 24 24"><path d="M12 2C12 2 6 8.5 6 12C6 15.31 8.69 18 12 18C15.31 18 18 15.31 18 12C18 8.5 12 2 12 2M12 15C10.34 15 9 13.66 9 12C9 10.34 10.34 9 12 9C13.66 9 15 10.34 15 12C15 13.66 13.66 15 12 15Z"/></svg>
+            meinlicht
+        </h1>
+        <p class="text-sm opacity-80 mt-1">โมเดล PWA เสมือนจริงสำหรับเว็บสั่งอาหารและดูรายการเมนูของร้าน</p>
+        <p class="text-xs text-brand-accent mt-2 bg-red-950/40 inline-block px-3 py-1 rounded-full border border-red-800/60">💡 สามารถกดโต้ตอบ, ค้นหาเมนู, คลิกดูสินค้า และทดลองสั่งอาหารได้เลย!</p>
+    </div>
+
+    <!-- Main Workspace Container -->
+    <div class="w-full max-w-6xl flex flex-col lg:flex-row items-center justify-center gap-8 lg:gap-12">
+        
+        <!-- LEFT PANEL: PWA Simulated Tools for Desktop inspection -->
+        <div class="w-full lg:w-80 bg-stone-900/80 border border-stone-800 p-6 rounded-3xl text-white order-2 lg:order-1 flex flex-col gap-5">
+            <h3 class="font-semibold text-lg text-brand-accent border-b border-stone-800 pb-2">📊 PWA Control Desk</h3>
+            
+            <!-- Store Stats -->
+            <div>
+                <p class="text-xs text-stone-400">ชื่อร้านอาหาร:</p>
+                <p class="font-bold text-base text-stone-200">meinlicht (ไมน์ลิชท์)</p>
+            </div>
+            
+            <!-- Quick Cart Info -->
+            <div class="bg-stone-800/50 p-3 rounded-2xl border border-stone-700/50">
+                <p class="text-xs text-stone-400 mb-1">ตะกร้าสินค้าจำลอง:</p>
+                <div class="flex justify-between items-center">
+                    <span id="pwa-cart-count" class="text-xs bg-brand-primary px-2.5 py-0.5 rounded-full font-bold">0 ชิ้น</span>
+                    <span id="pwa-cart-total" class="font-bold text-brand-accent">฿ 0.00</span>
+                </div>
+                <button onclick="toggleCartOverlay(true)" class="w-full mt-3 bg-stone-700 hover:bg-stone-600 transition text-xs py-2 rounded-xl font-medium">🛒 ตรวจสอบตะกร้า</button>
+            </div>
+
+            <!-- Install Simulator Button -->
+            <div class="border-t border-stone-800 pt-4">
+                <button onclick="simulateInstall()" class="w-full bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-600 hover:to-amber-700 text-stone-950 text-xs font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 shadow-lg active-scale">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+                    ติดตั้งแอปบนมือถือ (จำลอง)
+                </button>
+                <p class="text-[10px] text-stone-400 mt-2 text-center">จำลองการติดตั้งไฟล์ลงบนหน้าจอเพื่อสัมผัสประสบการณ์แบบ PWA แท้</p>
+            </div>
+
+            <!-- Offline Simulator -->
+            <div class="flex items-center justify-between border-t border-stone-800 pt-4 text-xs">
+                <span>จำลองการใช้งานแบบ Offline</span>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="offline-toggle" class="sr-only peer" onchange="toggleOffline(this)">
+                    <div class="w-11 h-6 bg-stone-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-primary"></div>
+                </label>
+            </div>
+            <div id="offline-status-msg" class="text-[10px] text-emerald-400 bg-emerald-950/30 p-2 rounded-xl border border-emerald-900/50 hidden text-center">
+                📶 กำลังใช้งานโหมด Offline (ข้อมูลถูกโหลดจาก Cache เสมือน)
+            </div>
+        </div>
+
+        <!-- CENTER PANEL: Beautiful Smartphone Simulator with the PWA App running inside -->
+        <div class="simulator-outer w-full max-w-[400px] h-[780px] bg-stone-100 flex flex-col overflow-hidden order-1 lg:order-2">
+            
+            <!-- Simulated Notch / Status Bar -->
+            <div class="simulator-notch"></div>
+            
+            <!-- Status Bar Grid -->
+            <div class="h-10 pt-4 px-6 flex justify-between items-center text-[11px] font-bold text-stone-600 bg-transparent z-40 select-none">
+                <div>15:33</div>
+                <div class="flex items-center gap-1">
+                    <svg class="w-3 h-3 fill-stone-700" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 19.4c-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0l1.9-1.9C9.17 19.58 10.53 20 12 20c4.97 0 9-4.03 9-9s-4.03-9-9-9zm0 15c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/></svg>
+                    <span>LTE</span>
+                    <div class="w-5 h-2.5 border border-stone-600 rounded-sm p-0.5 flex items-center"><div class="h-full w-4 bg-stone-700 rounded-2xs"></div></div>
+                </div>
+            </div>
+
+            <!-- Absolute Application Shell Wrapper -->
+            <div class="relative flex-1 w-full overflow-hidden flex flex-col bg-[#F9F9FA]">
+                
+                <!-- ================= VIEW 1: HOMEPAGE ================= -->
+                <div id="view-home" class="view-slide absolute inset-0 flex flex-col z-10">
+                    
+                    <!-- Scrollable Container -->
+                    <div class="flex-1 overflow-y-auto pb-24 no-scrollbar">
+                        
+                        <!-- Header Bar -->
+                        <div class="px-5 pt-4 pb-2 flex justify-between items-center">
+                            <!-- Custom Brand logo matching the premium vibe -->
+                            <div class="flex items-center gap-2">
+                                <div class="w-9 h-9 bg-brand-primary rounded-full flex items-center justify-center text-white shadow-md active-scale" onclick="brandInteraction()">
+                                    <!-- Custom Flame Icon for meinlicht -->
+                                    <svg class="w-5 h-5 fill-white" viewBox="0 0 24 24"><path d="M12 2C12 2 6 8.5 6 12C6 15.31 8.69 18 12 18C15.31 18 18 15.31 18 12C18 8.5 12 2 12 2M12 15C10.34 15 9 13.66 9 12C9 10.34 10.34 9 12 9C13.66 9 15 10.34 15 12C15 13.66 13.66 15 12 15Z"/></svg>
+                                </div>
+                                <span class="font-extrabold tracking-wider text-xl text-stone-900 uppercase">meinlicht</span>
+                            </div>
+                            
+                            <!-- Notification Button -->
+                            <button onclick="toggleNotificationSheet(true)" class="relative w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm border border-stone-200/40 active-scale">
+                                <svg class="w-5 h-5 stroke-stone-800" fill="none" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0"/></svg>
+                                <span class="absolute top-2.5 right-2.5 w-2 h-2 bg-brand-primary rounded-full ring-2 ring-white"></span>
+                            </button>
+                        </div>
+
+                        <!-- Hero Message -->
+                        <div class="px-5 mt-4">
+                            <h2 class="text-2xl font-medium text-stone-800 leading-tight">
+                                Choose<br>Your Favourite <span class="text-brand-primary font-bold">Food</span>
+                            </h2>
+                        </div>
+
+                        <!-- Search Bar -->
+                        <div class="px-5 mt-5 flex gap-3">
+                            <div class="relative flex-1">
+                                <span class="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                                    <svg class="w-5 h-5 text-stone-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.637 10.637Z"/></svg>
+                                </span>
+                                <input type="text" id="menu-search" oninput="searchFood(this.value)" placeholder="Search" class="w-full h-12 bg-white pl-12 pr-4 rounded-full text-sm border border-stone-200/50 shadow-sm focus:outline-none focus:border-brand-primary/50 transition">
+                            </div>
+                            <button onclick="triggerSearchAction()" class="w-12 h-12 bg-brand-primary rounded-full flex items-center justify-center text-white shadow-md shadow-red-900/10 active-scale">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/></svg>
+                            </button>
+                        </div>
+
+                        <!-- Category Scroll -->
+                        <div class="mt-6 flex gap-3 px-5 overflow-x-auto no-scrollbar py-1">
+                            <button onclick="filterCategory('All')" class="cat-pill active px-6 py-2 bg-brand-primary text-white rounded-full text-xs font-semibold shadow-md shadow-red-900/10 active-scale transition">All</button>
+                            <button onclick="filterCategory('Pizza')" class="cat-pill px-6 py-2 bg-white text-stone-500 rounded-full text-xs font-semibold shadow-xs hover:bg-stone-50 border border-stone-200/40 active-scale transition">Pizza</button>
+                            <button onclick="filterCategory('Burger')" class="cat-pill px-6 py-2 bg-white text-stone-500 rounded-full text-xs font-semibold shadow-xs hover:bg-stone-50 border border-stone-200/40 active-scale transition">Burger</button>
+                            <button onclick="filterCategory('Fries')" class="cat-pill px-6 py-2 bg-white text-stone-500 rounded-full text-xs font-semibold shadow-xs hover:bg-stone-50 border border-stone-200/40 active-scale transition">Fries</button>
+                            <button onclick="filterCategory('Coolers')" class="cat-pill px-6 py-2 bg-white text-stone-500 rounded-full text-xs font-semibold shadow-xs hover:bg-stone-50 border border-stone-200/40 active-scale transition">Coolers</button>
+                        </div>
+
+                        <!-- Popular Food Slider Area -->
+                        <div class="mt-6">
+                            <div class="px-5 flex justify-between items-center mb-4">
+                                <h3 class="font-bold text-sm tracking-wide text-stone-900 uppercase">Popular Food</h3>
+                            </div>
+                            
+                            <!-- Popular Items Slider -->
+                            <div class="flex gap-4 px-5 overflow-x-auto no-scrollbar py-2" id="popular-slider">
+                                <!-- Generated Dynamically via JS to allow filtering -->
+                            </div>
+                        </div>
+
+                        <!-- Nearest Food Slider Area -->
+                        <div class="mt-6">
+                            <div class="px-5 flex justify-between items-center mb-4">
+                                <h3 class="font-bold text-sm tracking-wide text-stone-900 uppercase">Nearest</h3>
+                            </div>
+                            
+                            <!-- Nearest Items Slider -->
+                            <div class="flex gap-4 px-5 overflow-x-auto no-scrollbar py-2" id="nearest-slider">
+                                <!-- Generated Dynamically via JS to allow filtering -->
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Bottom Nav Dock (Exactly matching screenshot curve design) -->
+                    <div class="nav-dock absolute bottom-0 left-0 w-full h-20 bg-brand-primary flex justify-around items-center px-4 z-40">
+                        <button onclick="switchNavTab('home')" class="nav-btn w-12 h-12 bg-white/10 rounded-full text-white flex items-center justify-center active-scale transition">
+                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+                        </button>
+                        <button onclick="switchNavTab('profile')" class="nav-btn w-12 h-12 text-white/60 hover:text-white rounded-full flex items-center justify-center active-scale transition">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"/></svg>
+                        </button>
+                        <button onclick="switchNavTab('location')" class="nav-btn w-12 h-12 text-white/60 hover:text-white rounded-full flex items-center justify-center active-scale transition">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"/></svg>
+                        </button>
+                        <button onclick="switchNavTab('notifications')" class="nav-btn w-12 h-12 text-white/60 hover:text-white rounded-full flex items-center justify-center active-scale transition">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0"/></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ================= VIEW 2: PRODUCT DETAIL PAGE ================= -->
+                <div id="view-detail" class="view-slide absolute inset-0 flex flex-col z-20 translate-x-full opacity-0 bg-[#F9F9FA]">
+                    
+                    <!-- Detail Top Card Container (Crimson Curve) -->
+                    <div class="detail-backdrop relative h-[320px] px-5 pt-4 flex flex-col justify-between pb-8">
+                        <!-- Navigation Row -->
+                        <div class="flex justify-between items-center z-20">
+                            <button onclick="closeDetailView()" class="w-10 h-10 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-full flex items-center justify-center text-white active-scale transition">
+                                <svg class="w-5 h-5 stroke-white" fill="none" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/></svg>
+                            </button>
+                            <button onclick="triggerMoreAction()" class="w-10 h-10 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-full flex items-center justify-center text-white active-scale transition">
+                                <svg class="w-5 h-5 fill-white" viewBox="0 0 24 24"><path d="M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm0 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>
+                            </button>
+                        </div>
+
+                        <!-- Large Food Image Floating at the center overlapping the curve -->
+                        <div class="absolute bottom-[-40px] left-1/2 -translate-x-1/2 w-56 h-56 flex items-center justify-center z-30 select-none pointer-events-none">
+                            <img id="detail-product-img" src="" alt="Hamburger Big Preview" class="max-w-full max-h-full object-contain filter drop-shadow-[0_20px_25px_rgba(0,0,0,0.35)] transform transition hover:scale-105 duration-300">
+                        </div>
+                    </div>
+
+                    <!-- Scrollable Content Body starting after the overlap -->
+                    <div class="flex-1 overflow-y-auto pt-14 px-6 pb-28 no-scrollbar">
+                        <!-- Title & Price Container -->
+                        <div class="flex justify-between items-start gap-4">
+                            <div>
+                                <h1 id="detail-product-title" class="text-2xl font-bold text-stone-900 leading-tight">Hamburger</h1>
+                                <span id="detail-product-tag" class="text-xs text-brand-muted mt-1 font-semibold tracking-wider uppercase block">Burger</span>
+                            </div>
+                            <span id="detail-product-price" class="text-xl font-bold text-brand-primary whitespace-nowrap">Rs. 250.0</span>
+                        </div>
+
+                        <!-- Pill Tabs Section (Exactly as seen on screenshot) -->
+                        <div class="mt-6 flex bg-stone-200/55 p-1 rounded-full w-fit">
+                            <button onclick="toggleDetailTab('details')" id="tab-btn-details" class="px-7 py-2 bg-brand-primary text-white text-xs font-bold rounded-full transition shadow-xs active-scale">Details</button>
+                            <button onclick="toggleDetailTab('reviews')" id="tab-btn-reviews" class="px-7 py-2 text-stone-500 text-xs font-bold rounded-full transition active-scale">Reviews</button>
+                        </div>
+
+                        <!-- Tab contents -->
+                        <div class="mt-5 text-stone-600 leading-relaxed text-[13px]">
+                            <!-- Details Tab -->
+                            <div id="tab-content-details" class="transition-opacity duration-200">
+                                <p id="detail-product-desc">A premium handcrafted juicy burger stacked with double grilled meat patties, cheddar cheese layers, fresh crunchy lettuce, onions, and our signature meinlicht special house sauce on toasted sesame buns.</p>
+                                <span onclick="simulateSeeMore()" class="text-brand-primary font-bold hover:underline cursor-pointer inline-block mt-1">See more...</span>
+                            </div>
+
+                            <!-- Reviews Tab (Initially hidden) -->
+                            <div id="tab-content-reviews" class="hidden transition-opacity duration-200 space-y-3">
+                                <div class="bg-white p-3 rounded-2xl border border-stone-200/40 shadow-xs">
+                                    <div class="flex justify-between items-center mb-1">
+                                        <span class="font-bold text-stone-800 text-xs">คุณพิชิตพล (Pichitpon)</span>
+                                        <span class="text-brand-accent">★★★★★</span>
+                                    </div>
+                                    <p class="text-[12px] text-stone-500">อร่อยสมมงร้าน meinlicht! เบอร์เกอร์ชิ้นใหญ่ ซอสฉ่ำมาก แป้งบันก็นุ่มหอมเนยสุดๆ แนะนำครับ</p>
+                                </div>
+                                <div class="bg-white p-3 rounded-2xl border border-stone-200/40 shadow-xs">
+                                    <div class="flex justify-between items-center mb-1">
+                                        <span class="font-bold text-stone-800 text-xs">Aria Rose</span>
+                                        <span class="text-brand-accent">★★★★☆</span>
+                                    </div>
+                                    <p class="text-[12px] text-stone-500">Perfect crisp cheese layers. Delivery was swift, food arrived piping hot inside neat eco packaging.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Detail Fixed Action Bar at the very bottom -->
+                    <div class="absolute bottom-0 left-0 w-full h-24 bg-white border-t border-stone-100 px-6 py-4 flex justify-between items-center gap-4 shadow-[0_-10px_35px_rgba(0,0,0,0.04)] z-40 rounded-t-3xl">
+                        <!-- Quantity Control Panel -->
+                        <div class="flex items-center bg-stone-100 p-1 rounded-full gap-3 border border-stone-200/30">
+                            <button onclick="updateQty(-1)" class="w-9 h-9 bg-brand-primary text-white rounded-full flex items-center justify-center text-lg font-bold hover:bg-brand-dark transition active-scale">-</button>
+                            <span id="detail-qty-num" class="w-6 text-center text-sm font-bold text-stone-900 select-none">1</span>
+                            <button onclick="updateQty(1)" class="w-9 h-9 bg-brand-primary text-white rounded-full flex items-center justify-center text-lg font-bold hover:bg-brand-dark transition active-scale">+</button>
+                        </div>
+
+                        <!-- Wide Cart Action Button -->
+                        <button onclick="addCurrentItemToCart()" class="flex-1 h-12 bg-brand-primary hover:bg-brand-dark text-white rounded-2xl font-bold text-sm tracking-wide shadow-md shadow-red-900/10 transition active-scale flex items-center justify-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"/></svg>
+                            Add to Cart
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ================= EXTRA PANEL: MOCK CART SHEET OVERLAY ================= -->
+                <div id="cart-overlay" class="absolute inset-0 bg-black/60 z-50 transition-opacity duration-300 opacity-0 pointer-events-none flex flex-col justify-end">
+                    <div class="bg-white rounded-t-[36px] max-h-[85%] flex flex-col p-6 transition-transform duration-300 translate-y-full shadow-2xl">
+                        <!-- Header -->
+                        <div class="flex justify-between items-center mb-5 border-b border-stone-100 pb-3">
+                            <h3 class="font-extrabold text-lg text-stone-900 flex items-center gap-2">
+                                🛒 ตะกร้าของฉัน
+                                <span id="cart-sheet-count" class="text-xs bg-brand-primary text-white font-bold px-2 py-0.5 rounded-full">0</span>
+                            </h3>
+                            <button onclick="toggleCartOverlay(false)" class="p-1 hover:bg-stone-100 rounded-full transition">
+                                <svg class="w-6 h-6 text-stone-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+                            </button>
+                        </div>
+                        
+                        <!-- Scrollable items -->
+                        <div id="cart-items-list" class="flex-1 overflow-y-auto space-y-4 no-scrollbar min-h-[150px] pr-1">
+                            <!-- Populated via JS -->
+                        </div>
+
+                        <!-- Footer -->
+                        <div class="mt-6 border-t border-stone-100 pt-5 space-y-3">
+                            <div class="flex justify-between items-center font-bold text-sm text-stone-500">
+                                <span>ยอดรวมย่อย</span>
+                                <span id="cart-subtotal-price" class="text-brand-primary text-base">฿ 0.00</span>
+                            </div>
+                            <button onclick="checkoutMock()" class="w-full h-12 bg-brand-primary hover:bg-brand-dark text-white rounded-2xl font-bold text-sm tracking-wide transition active-scale flex items-center justify-center gap-2 shadow-lg">
+                               สั่งซื้อเลย (Checkout)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ================= EXTRA PANEL: NOTIFICATION CENTER ================= -->
+                <div id="notification-overlay" class="absolute inset-0 bg-black/60 z-50 transition-opacity duration-300 opacity-0 pointer-events-none flex flex-col justify-end">
+                    <div class="bg-stone-50 rounded-t-[36px] max-h-[80%] flex flex-col p-6 transition-transform duration-300 translate-y-full shadow-2xl">
+                        <div class="flex justify-between items-center mb-5 border-b border-stone-200 pb-3">
+                            <h3 class="font-extrabold text-lg text-stone-900 flex items-center gap-2">
+                                🔔 การแจ้งเตือน
+                            </h3>
+                            <button onclick="toggleNotificationSheet(false)" class="p-1 hover:bg-stone-200 rounded-full transition">
+                                <svg class="w-6 h-6 text-stone-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+                            </button>
+                        </div>
+                        
+                        <div class="flex-1 overflow-y-auto space-y-3 no-scrollbar">
+                            <div class="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs flex gap-3">
+                                <div class="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">🍔</div>
+                                <div>
+                                    <h4 class="font-bold text-xs text-stone-800">ออเดอร์ของท่านได้รับการยืนยัน!</h4>
+                                    <p class="text-[11px] text-stone-500 mt-1">ออเดอร์หมายเลข #ML-8291 จากร้าน meinlicht ได้เข้าสู่ครัวเรียบร้อยแล้ว</p>
+                                    <span class="text-[9px] text-stone-400 mt-2 block">10 นาทีที่แล้ว</span>
+                                </div>
+                            </div>
+                            <div class="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs flex gap-3">
+                                <div class="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 shrink-0">🔥</div>
+                                <div>
+                                    <h4 class="font-bold text-xs text-stone-800">ต้อนรับสู่แอป meinlicht PWA!</h4>
+                                    <p class="text-[11px] text-stone-500 mt-1">ดาวน์โหลดแอปนี้เก็บไว้บนหน้าจอมือถือเพื่อเริ่มเข้าใช้งานด่วนได้แม้ยามออฟไลน์</p>
+                                    <span class="text-[9px] text-stone-400 mt-2 block">1 ชั่วโมงที่แล้ว</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ================= EXTRA PANEL: LOCATION SELECTION ================= -->
+                <div id="location-overlay" class="absolute inset-0 bg-black/60 z-50 transition-opacity duration-300 opacity-0 pointer-events-none flex flex-col justify-end">
+                    <div class="bg-white rounded-t-[36px] max-h-[80%] flex flex-col p-6 transition-transform duration-300 translate-y-full shadow-2xl">
+                        <div class="flex justify-between items-center mb-5 border-b border-stone-100 pb-3">
+                            <h3 class="font-extrabold text-lg text-stone-900 flex items-center gap-2">
+                                📍 ที่อยู่จัดส่ง
+                            </h3>
+                            <button onclick="toggleLocationSheet(false)" class="p-1 hover:bg-stone-100 rounded-full transition">
+                                <svg class="w-6 h-6 text-stone-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+                            </button>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <div class="bg-stone-50 p-4 rounded-2xl border border-stone-200 flex gap-3 items-center hover:bg-stone-100 cursor-pointer transition">
+                                <span class="text-xl">🏠</span>
+                                <div class="flex-1">
+                                    <h4 class="font-bold text-xs text-stone-800">บ้านของฉัน (Home)</h4>
+                                    <p class="text-[11px] text-stone-500 mt-1">99/9 ถ.สุขุมวิท, แขวงคลองเตย, เขตคลองเตย, กรุงเทพมหานคร</p>
+                                </div>
+                                <span class="text-brand-primary">✔</span>
+                            </div>
+                            <div class="bg-stone-50 p-4 rounded-2xl border border-stone-200 flex gap-3 items-center hover:bg-stone-100 cursor-pointer transition">
+                                <span class="text-xl">🏢</span>
+                                <div class="flex-1">
+                                    <h4 class="font-bold text-xs text-stone-800">ที่ทำงาน (Office)</h4>
+                                    <p class="text-[11px] text-stone-500 mt-1">อาคารจัสมินทาวเวอร์ ชั้น 18, ซอยประสานมิตร, วัฒนา, กรุงเทพฯ</p>
+                                </div>
+                            </div>
+                            <button onclick="toggleLocationSheet(false)" class="w-full h-11 bg-brand-primary text-white rounded-xl text-xs font-bold active-scale transition mt-2">
+                                ยืนยันตำแหน่งปัจจุบัน
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ================= EXTRA PANEL: PROFILE SHEET ================= -->
+                <div id="profile-overlay" class="absolute inset-0 bg-black/60 z-50 transition-opacity duration-300 opacity-0 pointer-events-none flex flex-col justify-end">
+                    <div class="bg-white rounded-t-[36px] max-h-[80%] flex flex-col p-6 transition-transform duration-300 translate-y-full shadow-2xl">
+                        <div class="flex justify-between items-center mb-5 border-b border-stone-100 pb-3">
+                            <h3 class="font-extrabold text-lg text-stone-900">👤 ข้อมูลส่วนตัว</h3>
+                            <button onclick="toggleProfileSheet(false)" class="p-1 hover:bg-stone-100 rounded-full transition">
+                                <svg class="w-6 h-6 text-stone-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+                            </button>
+                        </div>
+                        
+                        <div class="flex flex-col items-center gap-3 text-center py-4">
+                            <div class="w-20 h-20 rounded-full bg-brand-primary text-white font-extrabold text-3xl flex items-center justify-center shadow-lg border-4 border-white ring-2 ring-brand-primary/20">
+                                K
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-base text-stone-900">Kartik (meinlicht Member)</h4>
+                                <p class="text-xs text-stone-500">kartik.meinlicht@gmail.com</p>
+                            </div>
+                            <div class="w-full mt-4 bg-brand-light border border-brand-primary/20 p-3 rounded-2xl flex justify-around text-center">
+                                <div>
+                                    <p class="text-[10px] text-stone-400 uppercase">Points</p>
+                                    <p class="font-extrabold text-brand-primary">1,240 XP</p>
+                                </div>
+                                <div class="border-l border-brand-primary/10"></div>
+                                <div>
+                                    <p class="text-[10px] text-stone-400 uppercase">Coupons</p>
+                                    <p class="font-extrabold text-brand-primary">5 ใบ</p>
+                                </div>
+                            </div>
+                            <button onclick="toggleProfileSheet(false)" class="w-full h-11 bg-stone-900 text-white rounded-xl text-xs font-bold active-scale mt-3">
+                                แก้ไขข้อมูลบัญชี
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dynamic Elegant Toast Notification -->
+                <div id="toast-notif" class="absolute top-14 left-1/2 -translate-x-1/2 bg-stone-900/95 backdrop-blur-md border border-stone-800 text-white py-3 px-5 rounded-2xl text-xs font-semibold shadow-2xl flex items-center gap-2 z-50 transform -translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+                    <span id="toast-icon">🍔</span>
+                    <span id="toast-text">เพิ่มเมนูลงตะกร้าเรียบร้อยแล้ว!</span>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <!-- PWA Simulation Dialog / Overlay -->
+    <div id="pwa-sim-modal" class="fixed inset-0 bg-black/80 z-[100] hidden items-center justify-center p-4">
+        <div class="bg-stone-900 text-white max-w-sm w-full p-6 rounded-3xl border border-stone-800 shadow-2xl text-center flex flex-col items-center gap-4">
+            <div class="w-16 h-16 bg-brand-primary rounded-2xl flex items-center justify-center text-white text-3xl shadow-lg">
+                <svg class="w-10 h-10 fill-white" viewBox="0 0 24 24"><path d="M12 2C12 2 6 8.5 6 12C6 15.31 8.69 18 12 18C15.31 18 18 15.31 18 12C18 8.5 12 2 12 2M12 15C10.34 15 9 13.66 9 12C9 10.34 10.34 9 12 9C13.66 9 15 10.34 15 12C15 13.66 13.66 15 12 15Z"/></svg>
+            </div>
+            <div>
+                <h3 class="font-extrabold text-lg text-brand-accent">ติดตั้งแอป meinlicht ลงหน้าจอ?</h3>
+                <p class="text-xs text-stone-400 mt-2 leading-relaxed">ติดตั้งโปรแกรมดูเมนูอาหารแบบ Progressive Web App เพื่อเข้าชมแบบออฟไลน์และเพลิดเพลินไปกับฟีเจอร์จองคิวด่วน</p>
+            </div>
+            <div class="w-full flex gap-3 mt-2">
+                <button onclick="closeInstallSim(false)" class="flex-1 py-3 bg-stone-800 hover:bg-stone-700 rounded-xl text-xs font-semibold transition active-scale">ยกเลิก</button>
+                <button onclick="closeInstallSim(true)" class="flex-1 py-3 bg-brand-primary hover:bg-brand-dark rounded-xl text-xs font-bold transition active-scale">ตกลง, ติดตั้ง</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- DATA LAYER ---
+        // Exquisite realistic restaurant food list with specific categories matching screenshot colors
+        const FOOD_DATABASE = [
+            {
+                id: 'p1',
+                title: 'Hamburger',
+                tag: 'Burger',
+                price: 250.0,
+                category: 'Burger',
+                image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&h=600&q=80',
+                description: 'เมนูเบอร์เกอร์พรีเมียมอันดับหนึ่งของ meinlicht! ย่างเนื้อแพตตี้สองชั้นสุดชุ่มฉ่ำประกบด้วยเชดด้าชีสเยิ้ม ๆ ผักกาดหอมคริสป์ มะเขือเทศสด หัวหอมใหญ่ ราดด้วยซอสสูตรลับพิเศษ เสิร์ฟบนขนมปังบันเนื้อนุ่มฟู',
+                rating: 4.9,
+                badge: 'Popular'
+            },
+            {
+                id: 'p2',
+                title: 'Pepperoni Pizza',
+                tag: 'Pizza',
+                price: 350.0,
+                category: 'Pizza',
+                image: 'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?auto=format&fit=crop&w=600&h=600&q=80',
+                description: 'พิซซ่าหน้าเปปเปอโรนีสไตล์อิตาเลียนดั้งเดิม แป้งโฮมเมดบางกรอบทาด้วยซอสมะเขือเทศเข้มข้น มอสซาเรลล่าชีสพรีเมียมและเปปเปอโรนีแผ่นใหญ่ยักษ์ อบจนหอมกรุ่นจากเตาฟืนถ่านเมนลิชท์',
+                rating: 4.8,
+                badge: 'Popular'
+            },
+            {
+                id: 'p3',
+                title: 'Cheesy Sandwich',
+                tag: 'Sandwich',
+                price: 200.0,
+                category: 'Fries', // Classified as snack side
+                image: 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&w=600&h=600&q=80',
+                description: 'แซนด์วิชกริลล์ชีสยืดสุดฟิน อัดแน่นไปด้วยสวิสชีสและโปรโวโลนระดับนำเข้า นำไปย่างเนยบนกระทะสเตนเลสจนสีทองอร่ามกรอบกรุบน่ารับประทาน',
+                rating: 4.7,
+                badge: 'Popular'
+            },
+            {
+                id: 'p4',
+                title: 'Crispy Fries Bowl',
+                tag: 'Sides',
+                price: 120.0,
+                category: 'Fries',
+                image: 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=600&h=600&q=80',
+                description: 'มันฝรั่งทอดเกรดเอชิ้นหนาจุใจ ทอดจนภายนอกกรอบเป็นสีเหลืองทองแต่ภายในยังคงความนุ่มฟูสไตล์ออริจินัล โรยเกลือหิมาลัยและสมุนไพรพาร์สลีย์สับละเอียด',
+                rating: 4.6,
+                badge: 'Nearest'
+            },
+            {
+                id: 'p5',
+                title: 'Summer Mojito',
+                tag: 'Coolers',
+                price: 150.0,
+                category: 'Coolers',
+                image: 'https://images.unsplash.com/photo-1497534446932-c925b458314e?auto=format&fit=crop&w=600&h=600&q=80',
+                description: 'เครื่องดื่มดับร้อนสุดสดชื่นที่ผสานน้ำมะนาวคั้นสด ใบสะระแหน่หอมเย็นเจือส้มสายน้ำผึ้งเติมความหวานกลมกล่อมและฟองซ่าด้วยโซดาเย็นเฉียบ',
+                rating: 4.9,
+                badge: 'Nearest'
+            }
+        ];
+
+        // --- APPLICATION STATE ---
+        let appState = {
+            activeCategory: 'All',
+            searchQuery: '',
+            selectedProduct: null,
+            detailQty: 1,
+            cart: [],
+            favorites: ['p1'], // Default pre-liked item to mirror the screenshot layout
+            activeNav: 'home'
+        };
+
+        // --- VIEWPORT INITS ---
+        window.addEventListener('load', () => {
+            renderSliders();
+        });
+
+        // --- RENDER DRIVER ---
+        function renderSliders() {
+            const popularSlider = document.getElementById('popular-slider');
+            const nearestSlider = document.getElementById('nearest-slider');
+            
+            popularSlider.innerHTML = '';
+            nearestSlider.innerHTML = '';
+
+            // Filter items based on Category & Search Query
+            const filteredItems = FOOD_DATABASE.filter(item => {
+                const matchCategory = appState.activeCategory === 'All' || item.category === appState.activeCategory;
+                const matchSearch = item.title.toLowerCase().includes(appState.searchQuery.toLowerCase()) || 
+                                    item.tag.toLowerCase().includes(appState.searchQuery.toLowerCase());
+                return matchCategory && matchSearch;
+            });
+
+            if (filteredItems.length === 0) {
+                const emptyHTML = `
+                    <div class="w-full text-center py-8 text-xs text-stone-400 font-semibold select-none">
+                        🔍 ไม่พบเมนูที่คุณค้นหาในขณะนี้
+                    </div>
+                `;
+                popularSlider.innerHTML = emptyHTML;
+                nearestSlider.innerHTML = emptyHTML;
+                return;
+            }
+
+            // Populate Popular food items
+            filteredItems.forEach(item => {
+                const isFavorite = appState.favorites.includes(item.id);
+                const heartFillColor = isFavorite ? 'var(--brand-primary)' : 'none';
+                const heartStrokeColor = isFavorite ? 'var(--brand-primary)' : 'var(--brand-text)';
+                
+                const cardHTML = `
+                    <div class="product-card bg-white min-w-[155px] w-[155px] rounded-3xl p-3.5 relative shadow-xs border border-stone-200/45 flex flex-col justify-between cursor-pointer transition transform duration-200 hover:scale-102 hover:shadow-md" onclick="openProductDetail('${item.id}')">
+                        <!-- Heart btn -->
+                        <button onclick="event.stopPropagation(); toggleFavorite('${item.id}', this)" class="absolute top-3.5 right-3.5 w-7.5 h-7.5 bg-white/80 backdrop-blur-md rounded-full flex items-center justify-center shadow-xs border border-stone-200/20 active-scale transition z-30">
+                            <svg class="w-4 h-4 heart-svg" fill="${heartFillColor}" stroke="${heartStrokeColor}" stroke-width="2" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                        </button>
+                        
+                        <!-- Image Area -->
+                        <div class="w-full h-24 flex items-center justify-center mt-2 pointer-events-none select-none">
+                            <img src="${item.image}" alt="${item.title}" class="max-w-full max-h-full object-contain filter drop-shadow-[0_8px_10px_rgba(0,0,0,0.15)]">
+                        </div>
+
+                        <!-- Card text details -->
+                        <div class="mt-4">
+                            <h4 class="font-bold text-xs text-stone-900 truncate">${item.title}</h4>
+                            <p class="text-[10px] text-stone-400 mt-0.5">${item.tag}</p>
+                            <p class="text-xs font-extrabold text-brand-primary mt-2">Rs. ${item.price.toFixed(1)}</p>
+                        </div>
+                    </div>
+                `;
+                
+                popularSlider.insertAdjacentHTML('beforeend', cardHTML);
+            });
+
+            // Populate Nearest food items (reverse array just to simulate different sorting)
+            [...filteredItems].reverse().forEach(item => {
+                const isFavorite = appState.favorites.includes(item.id);
+                const heartFillColor = isFavorite ? 'var(--brand-primary)' : 'none';
+                const heartStrokeColor = isFavorite ? 'var(--brand-primary)' : 'var(--brand-text)';
+                
+                const cardHTML = `
+                    <div class="product-card bg-white min-w-[155px] w-[155px] rounded-3xl p-3.5 relative shadow-xs border border-stone-200/45 flex flex-col justify-between cursor-pointer transition transform duration-200 hover:scale-102 hover:shadow-md" onclick="openProductDetail('${item.id}')">
+                        <button onclick="event.stopPropagation(); toggleFavorite('${item.id}', this)" class="absolute top-3.5 right-3.5 w-7.5 h-7.5 bg-white/80 backdrop-blur-md rounded-full flex items-center justify-center shadow-xs border border-stone-200/20 active-scale transition z-30">
+                            <svg class="w-4 h-4 heart-svg" fill="${heartFillColor}" stroke="${heartStrokeColor}" stroke-width="2" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                        </button>
+                        <div class="w-full h-24 flex items-center justify-center mt-2 pointer-events-none select-none">
+                            <img src="${item.image}" alt="${item.title}" class="max-w-full max-h-full object-contain filter drop-shadow-[0_8px_10px_rgba(0,0,0,0.15)]">
+                        </div>
+                        <div class="mt-4">
+                            <h4 class="font-bold text-xs text-stone-900 truncate">${item.title}</h4>
+                            <p class="text-[10px] text-stone-400 mt-0.5">${item.tag}</p>
+                            <p class="text-xs font-extrabold text-brand-primary mt-2">Rs. ${item.price.toFixed(1)}</p>
+                        </div>
+                    </div>
+                `;
+                nearestSlider.insertAdjacentHTML('beforeend', cardHTML);
+            });
+        }
+
+        // --- FILTER FUNCTIONALITY ---
+        function filterCategory(categoryName) {
+            appState.activeCategory = categoryName;
+            
+            // Adjust active CSS on pills
+            const pills = document.querySelectorAll('.cat-pill');
+            pills.forEach(pill => {
+                if (pill.innerText.trim() === categoryName) {
+                    pill.classList.add('bg-brand-primary', 'text-white', 'shadow-md', 'shadow-red-900/10');
+                    pill.classList.remove('bg-white', 'text-stone-500', 'border-stone-200/40');
+                } else {
+                    pill.classList.remove('bg-brand-primary', 'text-white', 'shadow-md', 'shadow-red-900/10');
+                    pill.classList.add('bg-white', 'text-stone-500', 'border-stone-200/40');
+                }
+            });
+
+            renderSliders();
+        }
+
+        function searchFood(query) {
+            appState.searchQuery = query;
+            renderSliders();
+        }
+
+        function triggerSearchAction() {
+            showToast('🔍 ค้นหาอาหารด่วนเสร็จสิ้น!', '🍔');
+        }
+
+        // --- FAVORITES HANDLING ---
+        function toggleFavorite(id, btnElement) {
+            const index = appState.favorites.indexOf(id);
+            const heartSvg = btnElement.querySelector('.heart-svg');
+            
+            if (index > -1) {
+                // Remove like
+                appState.favorites.splice(index, 1);
+                heartSvg.setAttribute('fill', 'none');
+                heartSvg.setAttribute('stroke', 'var(--brand-text)');
+                showToast('นำออกจากรายการโปรดแล้ว', '💔');
+            } else {
+                // Add like
+                appState.favorites.push(id);
+                heartSvg.setAttribute('fill', 'var(--brand-primary)');
+                heartSvg.setAttribute('stroke', 'var(--brand-primary)');
+                btnElement.classList.add('liked-animation');
+                setTimeout(() => btnElement.classList.remove('liked-animation'), 300);
+                showToast('เพิ่มเข้ารายการโปรดเรียบร้อย!', '❤️');
+            }
+        }
+
+        // --- DETAILED VIEW CONTROLLER ---
+        function openProductDetail(id) {
+            const product = FOOD_DATABASE.find(item => item.id === id);
+            if (!product) return;
+
+            appState.selectedProduct = product;
+            appState.detailQty = 1;
+
+            // Populate detail view fields
+            document.getElementById('detail-product-title').innerText = product.title;
+            document.getElementById('detail-product-tag').innerText = product.tag;
+            document.getElementById('detail-product-price').innerText = `Rs. ${product.price.toFixed(1)}`;
+            document.getElementById('detail-product-desc').innerText = product.description;
+            document.getElementById('detail-product-img').src = product.image;
+            document.getElementById('detail-qty-num').innerText = '1';
+
+            // Reset tabs
+            toggleDetailTab('details');
+
+            // Slide in animation
+            const detailView = document.getElementById('view-detail');
+            detailView.classList.remove('translate-x-full', 'opacity-0');
+            detailView.classList.add('translate-x-0', 'opacity-100');
+        }
+
+        function closeDetailView() {
+            const detailView = document.getElementById('view-detail');
+            detailView.classList.add('translate-x-full', 'opacity-0');
+            detailView.classList.remove('translate-x-0', 'opacity-100');
+            appState.selectedProduct = null;
+        }
+
+        // Qty adjust
+        function updateQty(amount) {
+            appState.detailQty += amount;
+            if (appState.detailQty < 1) appState.detailQty = 1;
+            document.getElementById('detail-qty-num').innerText = appState.detailQty;
+        }
+
+        // Tab detail logic
+        function toggleDetailTab(tab) {
+            const btnDetails = document.getElementById('tab-btn-details');
+            const btnReviews = document.getElementById('tab-btn-reviews');
+            const contentDetails = document.getElementById('tab-content-details');
+            const contentReviews = document.getElementById('tab-content-reviews');
+
+            if (tab === 'details') {
+                btnDetails.className = "px-7 py-2 bg-brand-primary text-white text-xs font-bold rounded-full transition shadow-xs active-scale";
+                btnReviews.className = "px-7 py-2 text-stone-500 text-xs font-bold rounded-full transition active-scale";
+                contentDetails.classList.remove('hidden');
+                contentReviews.classList.add('hidden');
+            } else {
+                btnReviews.className = "px-7 py-2 bg-brand-primary text-white text-xs font-bold rounded-full transition shadow-xs active-scale";
+                btnDetails.className = "px-7 py-2 text-stone-500 text-xs font-bold rounded-full transition active-scale";
+                contentReviews.classList.remove('hidden');
+                contentDetails.classList.add('hidden');
+            }
+        }
+
+        // --- CART HANDLING SYSTEM ---
+        function addCurrentItemToCart() {
+            if (!appState.selectedProduct) return;
+            
+            const existingCartItem = appState.cart.find(item => item.product.id === appState.selectedProduct.id);
+            if (existingCartItem) {
+                existingCartItem.qty += appState.detailQty;
+            } else {
+                appState.cart.push({
+                    product: appState.selectedProduct,
+                    qty: appState.detailQty
+                });
+            }
+
+            updateGlobalCartUI();
+            
+            showToast(`เพิ่ม ${appState.selectedProduct.title} ${appState.detailQty} ชิ้นเรียบร้อย!`, '🛒');
+            closeDetailView();
+        }
+
+        function updateGlobalCartUI() {
+            let totalQty = 0;
+            let totalPrice = 0.0;
+
+            appState.cart.forEach(item => {
+                totalQty += item.qty;
+                totalPrice += (item.product.price * item.qty);
+            });
+
+            // Update external stats panel
+            document.getElementById('pwa-cart-count').innerText = `${totalQty} ชิ้น`;
+            document.getElementById('pwa-cart-total').innerText = `฿ ${totalPrice.toFixed(2)}`;
+
+            // Update inner overlay values
+            document.getElementById('cart-sheet-count').innerText = totalQty;
+            document.getElementById('cart-subtotal-price').innerText = `฿ ${totalPrice.toFixed(2)}`;
+
+            // Draw cart list elements
+            const itemsContainer = document.getElementById('cart-items-list');
+            itemsContainer.innerHTML = '';
+
+            if (appState.cart.length === 0) {
+                itemsContainer.innerHTML = `
+                    <div class="text-center py-8 text-xs text-stone-400 font-medium">
+                        💤 ตะกร้าสินค้าว่างเปล่า ลองแวะชิมเบอร์เกอร์สักหน่อยไหม?
+                    </div>
+                `;
+                return;
+            }
+
+            appState.cart.forEach((item, index) => {
+                const itemHTML = `
+                    <div class="bg-stone-50 p-3 rounded-2xl border border-stone-200/50 flex items-center justify-between gap-3">
+                        <div class="w-12 h-12 bg-white rounded-xl flex items-center justify-center p-1 border border-stone-200/20">
+                            <img src="${item.product.image}" class="max-w-full max-h-full object-contain">
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <h4 class="font-bold text-xs text-stone-900 truncate">${item.product.title}</h4>
+                            <p class="text-[10px] text-brand-primary font-bold mt-0.5">Rs. ${item.product.price.toFixed(1)} x ${item.qty}</p>
+                        </div>
+                        <button onclick="removeItemFromCart(${index})" class="text-stone-400 hover:text-brand-primary p-1 active-scale transition">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.34 6m-4.78 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
+                        </button>
+                    </div>
+                `;
+                itemsContainer.insertAdjacentHTML('beforeend', itemHTML);
+            });
+        }
+
+        function removeItemFromCart(index) {
+            appState.cart.splice(index, 1);
+            updateGlobalCartUI();
+            showToast('ลบรายการสินค้าแล้ว', '🗑️');
+        }
+
+        function checkoutMock() {
+            if (appState.cart.length === 0) {
+                showToast('❌ กรุณาเลือกอาหารลงตะกร้าก่อนสั่งซื้อค่ะ', '⚠️');
+                return;
+            }
+            appState.cart = [];
+            updateGlobalCartUI();
+            toggleCartOverlay(false);
+            showToast('🎉 สั่งซื้อจำลองเสร็จสิ้น! meinlicht กำลังเตรียมอาหารให้คุณ', '🔥');
+        }
+
+        // --- OVERLAY GESTURE SYSTEM ---
+        function toggleCartOverlay(show) {
+            const overlay = document.getElementById('cart-overlay');
+            const sheet = overlay.querySelector('div');
+            if (show) {
+                overlay.classList.remove('pointer-events-none');
+                overlay.classList.add('opacity-100');
+                sheet.classList.remove('translate-y-full');
+            } else {
+                overlay.classList.add('pointer-events-none');
+                overlay.classList.remove('opacity-100');
+                sheet.classList.add('translate-y-full');
+            }
+        }
+
+        function toggleNotificationSheet(show) {
+            const overlay = document.getElementById('notification-overlay');
+            const sheet = overlay.querySelector('div');
+            if (show) {
+                overlay.classList.remove('pointer-events-none');
+                overlay.classList.add('opacity-100');
+                sheet.classList.remove('translate-y-full');
+            } else {
+                overlay.classList.add('pointer-events-none');
+                overlay.classList.remove('opacity-100');
+                sheet.classList.add('translate-y-full');
+            }
+        }
+
+        function toggleLocationSheet(show) {
+            const overlay = document.getElementById('location-overlay');
+            const sheet = overlay.querySelector('div');
+            if (show) {
+                overlay.classList.remove('pointer-events-none');
+                overlay.classList.add('opacity-100');
+                sheet.classList.remove('translate-y-full');
+            } else {
+                overlay.classList.add('pointer-events-none');
+                overlay.classList.remove('opacity-100');
+                sheet.classList.add('translate-y-full');
+            }
+        }
+
+        function toggleProfileSheet(show) {
+            const overlay = document.getElementById('profile-overlay');
+            const sheet = overlay.querySelector('div');
+            if (show) {
+                overlay.classList.remove('pointer-events-none');
+                overlay.classList.add('opacity-100');
+                sheet.classList.remove('translate-y-full');
+            } else {
+                overlay.classList.add('pointer-events-none');
+                overlay.classList.remove('opacity-100');
+                sheet.classList.add('translate-y-full');
+            }
+        }
+
+        // Bottom Nav Redirection Simulation
+        function switchNavTab(tab) {
+            // Remove active classes from all nav buttons
+            const navBtns = document.querySelectorAll('.nav-btn');
+            navBtns.forEach(btn => {
+                btn.className = "nav-btn w-12 h-12 text-white/60 hover:text-white rounded-full flex items-center justify-center active-scale transition";
+            });
+
+            // Target the active button and trigger correct overlay
+            if (tab === 'home') {
+                event.currentTarget.className = "nav-btn w-12 h-12 bg-white/10 rounded-full text-white flex items-center justify-center active-scale transition";
+                showToast('🏠 หน้าหลักเมนูแอป', '🍔');
+            } else if (tab === 'profile') {
+                event.currentTarget.className = "nav-btn w-12 h-12 bg-white/10 rounded-full text-white flex items-center justify-center active-scale transition";
+                toggleProfileSheet(true);
+            } else if (tab === 'location') {
+                event.currentTarget.className = "nav-btn w-12 h-12 bg-white/10 rounded-full text-white flex items-center justify-center active-scale transition";
+                toggleLocationSheet(true);
+            } else if (tab === 'notifications') {
+                event.currentTarget.className = "nav-btn w-12 h-12 bg-white/10 rounded-full text-white flex items-center justify-center active-scale transition";
+                toggleNotificationSheet(true);
+            }
+        }
+
+        // --- PWA MOCK DRIVERS ---
+        function simulateInstall() {
+            document.getElementById('pwa-sim-modal').classList.remove('hidden');
+            document.getElementById('pwa-sim-modal').classList.add('flex');
+        }
+
+        function closeInstallSim(confirmed) {
+            document.getElementById('pwa-sim-modal').classList.remove('flex');
+            document.getElementById('pwa-sim-modal').classList.add('hidden');
+            if (confirmed) {
+                showToast('📥 ติดตั้งแอป meinlicht ลงเครื่องเสร็จสิ้น!', '📱');
+            }
+        }
+
+        function toggleOffline(checkbox) {
+            const statusMsg = document.getElementById('offline-status-msg');
+            if (checkbox.checked) {
+                statusMsg.classList.remove('hidden');
+                showToast('📶 เข้าสู่โหมดออฟไลน์แล้ว', '📡');
+            } else {
+                statusMsg.classList.add('hidden');
+                showToast('🌐 เชื่อมต่อออนไลน์เสร็จสมบูรณ์', '⚡');
+            }
+        }
+
+        // Extra dynamic micro triggers
+        function brandInteraction() {
+            showToast('🔥 ยินดีต้อนรับสู่แผงควบคุมร้าน meinlicht', '💡');
+        }
+
+        function simulateSeeMore() {
+            showToast('📖 ขยายหน้าต่างประวัติอาหารพรีเมียมเรียบร้อย!', '📝');
+        }
+
+        function triggerMoreAction() {
+            showToast('แชร์ลิงก์อาหารหรือบุ๊กมาร์กไว้สำหรับออเดอร์ถัดไป', '🔗');
+        }
+
+        // --- TOAST NOTIFICATIONS (No browser alerts) ---
+        let toastTimeout;
+        function showToast(text, icon = '🍔') {
+            const toast = document.getElementById('toast-notif');
+            const toastText = document.getElementById('toast-text');
+            const toastIcon = document.getElementById('toast-icon');
+
+            toastText.innerText = text;
+            toastIcon.innerText = icon;
+
+            // Clear previous transitions
+            clearTimeout(toastTimeout);
+
+            toast.classList.remove('-translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            toastTimeout = setTimeout(() => {
+                toast.classList.add('-translate-y-20', 'opacity-0');
+                toast.classList.remove('translate-y-0', 'opacity-100');
+            }, 2500);
+        }
+    </script>
+</body>
+</html>

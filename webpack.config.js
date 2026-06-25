@@ -181,6 +181,52 @@ module.exports = (env, argv) => {
           version: require('./package.json').version
         }
       }),
+      // Customer portal HTML
+      new HtmlWebpackPlugin({
+        template: './public/customer.html',
+        filename: 'customer.html',
+        inject: 'body',
+        chunks: ['main'],
+        minify: isProduction ? {
+          removeComments: true,
+          collapseWhitespace: true,
+          removeRedundantAttributes: true,
+          useShortDoctype: true,
+          removeEmptyAttributes: true,
+          removeStyleLinkTypeAttributes: true,
+          keepClosingSlash: true,
+          minifyJS: true,
+          minifyCSS: true,
+          minifyURLs: true,
+        } : false,
+        templateParameters: {
+          isProduction,
+          version: require('./package.json').version,
+        }
+      }),
+      // Admin portal HTML
+      new HtmlWebpackPlugin({
+        template: './public/admin.html',
+        filename: 'admin.html',
+        inject: 'body',
+        chunks: ['main'],
+        minify: isProduction ? {
+          removeComments: true,
+          collapseWhitespace: true,
+          removeRedundantAttributes: true,
+          useShortDoctype: true,
+          removeEmptyAttributes: true,
+          removeStyleLinkTypeAttributes: true,
+          keepClosingSlash: true,
+          minifyJS: true,
+          minifyCSS: true,
+          minifyURLs: true,
+        } : false,
+        templateParameters: {
+          isProduction,
+          version: require('./package.json').version,
+        }
+      }),
 
       // Extract CSS to separate file in production
       ...(isProduction ? [
@@ -197,7 +243,7 @@ module.exports = (env, argv) => {
             from: 'public',
             to: '.',
             globOptions: {
-              ignore: ['**/index.html']
+              ignore: ['**/index.html', '**/customer.html', '**/admin.html']
             }
           }
         ]
