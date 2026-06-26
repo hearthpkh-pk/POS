@@ -44,7 +44,7 @@ export class StaffLogin {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) return alert('Login failed: ' + error.message);
       modal.remove();
-      window.location.href = '/admin.html';
+      window.location.href = '/pos';
     });
   }
 }

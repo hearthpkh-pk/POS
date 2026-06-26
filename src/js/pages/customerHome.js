@@ -2,6 +2,7 @@
 // Mein Licht – Customer Portal (Public, no auth required)
 import { supabase } from '../core/SupabaseClient.js';
 import { loginWithPhone } from '../services/auth.js';
+import { Utils } from '../utils.js';
 import '../../css/customer.css';
 
 const TRANSLATIONS = {
@@ -39,11 +40,13 @@ const TRANSLATIONS = {
     verifyBtn: 'ยืนยัน',
     editPhone: 'แก้ไขเบอร์',
     staffTitle: '⚡ Staff Login',
-    staffSub: 'ระบบสำหรับพนักงาน Mein Licht เท่านั้น',
+    staffSub: 'ระบบสำหรับพนักงานเท่านั้น',
     email: 'อีเมล',
     password: 'รหัสผ่าน',
     login: 'เข้าสู่ระบบ',
-    close: 'ปิด'
+    close: 'ปิด',
+    reservationTimeLabel: 'เวลานัดหมายเข้ามารับประทาน',
+    emptyReservationTime: 'กรุณาระบุเวลานัดหมาย'
   },
   en: {
     about: 'About',
@@ -79,11 +82,13 @@ const TRANSLATIONS = {
     verifyBtn: 'Verify',
     editPhone: 'Edit Phone',
     staffTitle: 'Staff Login',
-    staffSub: 'Authorized Mein Licht Staff Only',
+    staffSub: 'Authorized Staff Only',
     email: 'Email',
     password: 'Password',
     login: 'Login',
-    close: 'Close'
+    close: 'Close',
+    reservationTimeLabel: 'Reservation Date & Time',
+    emptyReservationTime: 'Please specify your reservation time'
   }
 };
 
@@ -131,7 +136,9 @@ export class CustomerHome {
         category_name_th: item.categories?.name_th || 'อื่นๆ',
         category_name_en: item.categories?.name_en || 'Others',
         sort_order: item.categories?.sort_order !== undefined ? item.categories.sort_order : 999,
-        likes_count: item.likes_count || 0
+        item_sort_order: item.sort_order !== undefined ? item.sort_order : 999,
+        likes_count: item.likes_count || 0,
+        is_sold_out: item.is_sold_out || false
       }));
     }
 
@@ -159,12 +166,15 @@ export class CustomerHome {
   // ──────────────────────────────────────────────
   _render() {
     const s = this.settings;
-    const storeName = s.store_name || 'Mein Licht';
+    const storeName = s.store_name || 'ร้านค้า';
+    document.title = storeName;
     const tagline = s.tagline || 'MEXICAN FUSION';
     const established = s.established || 'ESTD 2024';
     const location = s.location || 'Bangkok, Thailand';
     const heroImg = s.hero_image || 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=1600&q=80';
-    const logoImg = s.hero_logo || '';
+    const mascotImg = s.hero_logo || '';
+    const storeLogo = s.store_logo || '';
+    Utils.updateFavicon(storeLogo);
     const phone = s.store_phone || '064-9288187';
     const locationUrl = s.location_url || 'https://maps.app.goo.gl/qctSRFkG37zZDRdq9';
     const storefrontImg = s.storefront_image || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80';
@@ -181,7 +191,8 @@ export class CustomerHome {
     root.innerHTML = `
       <!-- NAV -->
       <nav class="c-nav" id="c-nav">
-        <div class="c-nav__logo" id="logo">
+        <div class="c-nav__logo" id="logo" style="display:flex;align-items:center;gap:0.5rem">
+          ${storeLogo ? `<img src="${storeLogo}" alt="${storeName} logo" style="width:32px;height:32px;border-radius:50%;object-fit:cover" />` : ''}
           ${storeName.split(' ')[0]}<span>${storeName.split(' ')[1] || ''}</span>
         </div>
         <ul class="c-nav__links">
@@ -218,14 +229,14 @@ export class CustomerHome {
           <span>${location}</span>
         </div>
         <div class="c-about__center">
-          ${logoImg
-            ? `<img class="c-about__logo" src="${logoImg}" alt="${storeName} logo" />`
+          ${mascotImg
+            ? `<img class="c-about__logo" src="${mascotImg}" alt="${storeName} mascot" />`
             : `<div class="c-about__logo-placeholder">🌮</div>`
           }
         </div>
         <div class="c-about__cols">
           <div class="c-about__col fade-in-up">
-            <div class="c-about__col-title">${s.about_1_title || 'MEIN LICHT'}</div>
+            <div class="c-about__col-title">${s.about_1_title || 'ABOUT US'}</div>
             <p class="c-about__col-desc">${s.about_1_desc || '...'}</p>
           </div>
           <div class="c-about__col fade-in-up" style="transition-delay:0.12s">
@@ -373,6 +384,10 @@ export class CustomerHome {
           <p class="c-modal-subtitle" id="guest-modal-sub">${t.verifySub}</p>
           <input class="c-modal-input" type="text" id="guest-name-input" placeholder="${t.fullName}" />
           <input class="c-modal-input" type="tel" id="guest-phone-input" placeholder="${t.phoneNumber}" />
+          <div style="margin-bottom:0.75rem; text-align:left;">
+            <label style="font-size:0.72rem; font-weight:700; color:var(--red); display:block; margin-bottom:0.25rem; text-transform:uppercase; letter-spacing:0.05em;" id="guest-time-label">${t.reservationTimeLabel}</label>
+            <input class="c-modal-input" type="datetime-local" id="guest-time-input" style="margin-bottom:0;" required />
+          </div>
           <button class="c-modal-btn" id="guest-submit-btn">${t.sendOtp}</button>
           <button class="c-modal-btn secondary" id="guest-cancel-btn">${t.cancel}</button>
         </div>
@@ -471,7 +486,11 @@ export class CustomerHome {
       const cartQty = cartItem ? cartItem.qty : 0;
       
       let footerActionHTML = '';
-      if (cartQty > 0) {
+      if (m.is_sold_out) {
+        footerActionHTML = `
+          <span style="font-size:0.7rem; font-weight:700; color:var(--text-muted); background:var(--cream-dark); padding:0.35rem 0.65rem; border-radius:var(--radius-pill); border:1px solid var(--cream-border);">${this.currentLang === 'th' ? 'หมดชั่วคราว' : 'Sold Out'}</span>
+        `;
+      } else if (cartQty > 0) {
         footerActionHTML = `
           <div class="c-menu-card__qty-controls">
             <button class="c-menu-card__qty-btn minus-cart-btn" data-id="${m.id}">-</button>
@@ -488,13 +507,14 @@ export class CustomerHome {
       }
 
       return `
-        <div class="c-menu-card fade-in-up" data-menu-id="${m.id}" data-menu-price="${m.price}" data-menu-name="${displayName}">
+        <div class="c-menu-card fade-in-up ${m.is_sold_out ? 'c-menu-card--sold-out' : ''}" data-menu-id="${m.id}" data-menu-price="${m.price}" data-menu-name="${displayName}">
           <div class="c-menu-card__img-container">
             ${m.image_url
               ? `<img src="${m.image_url}" alt="${displayName}" loading="lazy" />`
               : `<div class="c-menu-card__img-placeholder">🌮</div>`
             }
-            <button class="c-menu-card__like-btn like-btn ${isLiked ? 'active' : ''}" data-id="${m.id}" aria-label="ถูกใจ">
+            ${m.is_sold_out ? `<div class="c-menu-card__sold-out-badge">${this.currentLang === 'th' ? 'หมด' : 'Out of stock'}</div>` : ''}
+            <button class="c-menu-card__like-btn like-btn ${isLiked ? 'active' : ''}" data-id="${m.id}" aria-label="ถูกใจ" ${m.is_sold_out ? 'disabled style="display:none"' : ''}>
               <i class="${isLiked ? 'fas' : 'far'} fa-heart"></i>
             </button>
           </div>
@@ -538,16 +558,19 @@ export class CustomerHome {
     const sortedCategories = Object.values(categoriesMap).sort((a, b) => a.sort_order - b.sort_order);
     const t = TRANSLATIONS[this.currentLang];
 
-    return sortedCategories.map(cat => `
-      <div class="c-menu-section fade-in-up" id="category-section-${cat.id}">
-        <h3 class="c-menu-section__title">
-          ${cat.name} <span>(${cat.items.length} ${t.itemsCount})</span>
-        </h3>
-        <div class="c-menu__grid">
-          ${this._renderMenuCards(cat.items)}
+    return sortedCategories.map(cat => {
+      const sortedItems = cat.items.sort((a, b) => a.item_sort_order - b.item_sort_order);
+      return `
+        <div class="c-menu-section fade-in-up" id="category-section-${cat.id}">
+          <h3 class="c-menu-section__title">
+            ${cat.name} <span>(${cat.items.length} ${t.itemsCount})</span>
+          </h3>
+          <div class="c-menu__grid">
+            ${this._renderMenuCards(sortedItems)}
+          </div>
         </div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
   }
 
   // ──────────────────────────────────────────────
@@ -601,7 +624,7 @@ export class CustomerHome {
       const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
       if (error) return alert('Login ไม่สำเร็จ: ' + error.message);
       this._closeModal('staff-modal');
-      window.location.href = '/admin.html';
+      window.location.href = '/pos';
     });
     document.getElementById('staff-cancel-btn').addEventListener('click', () => this._closeModal('staff-modal'));
   }
@@ -692,7 +715,7 @@ export class CustomerHome {
     // Share Link
     document.getElementById('dock-share-btn')?.addEventListener('click', () => {
       const s = this.settings;
-      const storeName = s.store_name || 'Mein Licht';
+      const storeName = s.store_name || 'ร้านค้า';
       const tagline = s.tagline || 'MEXICAN FUSION';
       
       if (navigator.share) {
@@ -833,6 +856,8 @@ export class CustomerHome {
     if (guestNameInput) guestNameInput.placeholder = t.fullName;
     const guestPhoneInput = document.getElementById('guest-phone-input');
     if (guestPhoneInput) guestPhoneInput.placeholder = t.phoneNumber;
+    const guestTimeLabel = document.getElementById('guest-time-label');
+    if (guestTimeLabel) guestTimeLabel.textContent = t.reservationTimeLabel;
     const guestSubmitBtn = document.getElementById('guest-submit-btn');
     if (guestSubmitBtn) guestSubmitBtn.textContent = t.sendOtp;
     const guestCancelBtn = document.getElementById('guest-cancel-btn');
@@ -1061,6 +1086,22 @@ export class CustomerHome {
     const navBtn = document.getElementById('cart-nav-btn');
     navBtn?.classList.toggle('has-items', count > 0);
 
+    // Disable checkout button if store is closed
+    const checkoutBtn = document.getElementById('checkout-btn');
+    if (checkoutBtn) {
+      if (this.settings['store_status'] === 'closed') {
+        checkoutBtn.disabled = true;
+        checkoutBtn.textContent = this.currentLang === 'th' ? '🔴 ร้านปิดบริการชั่วคราว' : '🔴 Closed Temporarily';
+        checkoutBtn.style.background = '#9CA3AF';
+        checkoutBtn.style.cursor = 'not-allowed';
+      } else {
+        checkoutBtn.disabled = false;
+        checkoutBtn.textContent = TRANSLATIONS[this.currentLang].checkout;
+        checkoutBtn.style.background = '';
+        checkoutBtn.style.cursor = '';
+      }
+    }
+
     // Update drawer floating cart bar
     const drawerCartBar = document.getElementById('drawer-cart-bar');
     const drawerCartBarText = document.getElementById('drawer-cart-bar-text');
@@ -1158,23 +1199,109 @@ export class CustomerHome {
   }
 
   _openGuestModal() {
+    if (this.settings['store_status'] === 'closed') {
+      alert(this.currentLang === 'th' 
+        ? 'ขออภัย ขณะนี้ทางร้านปิดบริการชั่วคราว ไม่สามารถจองหรือสั่งอาหารล่วงหน้าได้ในขณะนี้' 
+        : 'Sorry, the shop is currently closed. Pre-orders and reservations are unavailable.');
+      return;
+    }
+
     this._openModal('guest-modal');
+    this._initFlatpickr();
+
     document.getElementById('guest-submit-btn').onclick = async () => {
       const name = document.getElementById('guest-name-input').value.trim();
       const phone = document.getElementById('guest-phone-input').value.trim();
+      const resTime = document.getElementById('guest-time-input').value;
       if (!name || !phone) return alert(this.currentLang === 'th' ? 'กรุณากรอกชื่อและเบอร์โทร' : 'Please fill name and phone number');
+      if (!resTime) return alert(TRANSLATIONS[this.currentLang].emptyReservationTime);
       try {
         await loginWithPhone(phone);
         this._closeModal('guest-modal');
         document.getElementById('otp-phone-display').textContent = phone;
         this._openModal('otp-modal');
-        this._pendingGuestInfo = { name, phone };
+        this._pendingGuestInfo = { name, phone, reservationTime: resTime };
         this._setupOtpVerify();
       } catch (e) {
         alert(e.message);
       }
     };
-    document.getElementById('guest-cancel-btn').onclick = () => this._closeModal('guest-modal');
+    document.getElementById('guest-cancel-btn').onclick = () => {
+      if (this.flatpickrInstance) {
+        this.flatpickrInstance.destroy();
+        this.flatpickrInstance = null;
+      }
+      this._closeModal('guest-modal');
+    };
+  }
+
+  _initFlatpickr() {
+    const input = document.getElementById('guest-time-input');
+    if (!input) return;
+    
+    // Change input type to text for flatpickr to hook on properly
+    input.type = 'text';
+
+    // Parse closed days
+    const closedDays = (this.settings['weekly_closed_day'] || '2')
+        .split(',')
+        .map(x => x.trim())
+        .filter(x => x !== '')
+        .map(Number);
+
+    const openTime = this.settings['open_time'] || '11:00';
+    const closeTime = this.settings['close_time'] || '19:00';
+
+    // Check if current time is past today's closing time
+    const now = new Date();
+    const [closeHour, closeMin] = closeTime.split(':').map(Number);
+    const closeDateTime = new Date();
+    closeDateTime.setHours(closeHour, closeMin || 0, 0, 0);
+
+    let minDateVal = "today";
+    if (now > closeDateTime) {
+      const tomorrow = new Date();
+      tomorrow.setDate(now.getDate() + 1);
+      minDateVal = tomorrow;
+    }
+
+    // Flatpickr initialization
+    this.flatpickrInstance = flatpickr(input, {
+      enableTime: true,
+      dateFormat: "Y-m-d H:i",
+      minDate: minDateVal,
+      minTime: openTime,
+      maxTime: closeTime,
+      locale: this.currentLang === 'th' ? 'th' : 'default',
+      disable: [
+        function(date) {
+          // Disable weekly closed days
+          return closedDays.includes(date.getDay());
+        }
+      ],
+      onChange: (selectedDates, dateStr, instance) => {
+        // Double check if selected time is within range
+        if (selectedDates.length > 0) {
+          const selected = selectedDates[0];
+          const [openHour, openMin] = openTime.split(':').map(Number);
+          const [closeHour, closeMin] = closeTime.split(':').map(Number);
+          
+          const hours = selected.getHours();
+          const minutes = selected.getMinutes();
+          
+          const selectedVal = hours * 60 + minutes;
+          const openVal = openHour * 60 + (openMin || 0);
+          const closeVal = closeHour * 60 + (closeMin || 0);
+          
+          if (selectedVal < openVal || selectedVal > closeVal) {
+            alert(this.currentLang === 'th' 
+              ? `กรุณาเลือกเวลาช่วง ${openTime} ถึง ${closeTime}` 
+              : `Please select a time between ${openTime} and ${closeTime}`);
+            instance.clear();
+          }
+        }
+      }
+    });
   }
 
   _setupOtpVerify() {
@@ -1214,6 +1341,7 @@ export class CustomerHome {
         price: i.price
       })),
       total_price: totalPrice,
+      reservation_time: this.guestInfo.reservationTime,
       user_agent: navigator.userAgent,
       behavior_data: {
         events: this.behaviorData,
@@ -1392,6 +1520,27 @@ export class CustomerHome {
     // Dynamic Mock Description based on item name
     descText.textContent = this._getMockDescription(displayName);
 
+    // Disable adding to cart if sold out
+    const addBtn = document.getElementById('detail-add-to-cart-btn');
+    const qtySelector = modal.querySelector('.c-qty-selector');
+    if (item.is_sold_out) {
+      if (addBtn) {
+        addBtn.disabled = true;
+        addBtn.style.opacity = '0.5';
+        addBtn.style.pointerEvents = 'none';
+        addBtn.innerHTML = `<i class="fas fa-ban"></i> ${this.currentLang === 'th' ? 'หมดชั่วคราว' : 'Sold Out'}`;
+      }
+      if (qtySelector) qtySelector.style.opacity = '0.3';
+    } else {
+      if (addBtn) {
+        addBtn.disabled = false;
+        addBtn.style.opacity = '1';
+        addBtn.style.pointerEvents = 'auto';
+        addBtn.innerHTML = `<i class="fas fa-shopping-bag"></i> ${this.currentLang === 'th' ? 'ใส่ตะกร้า' : 'ใส่ตะกร้า'}`;
+      }
+      if (qtySelector) qtySelector.style.opacity = '1';
+    }
+
     // Sync Like Status on Detail Like Button
     const likeBtn = document.getElementById('detail-modal-like-btn');
     if (likeBtn) {
@@ -1450,9 +1599,10 @@ export class CustomerHome {
         : 'A refreshing premium beverage made from high-quality ingredients, freshly brewed per order. Perfectly balanced sweetness to cool you down and boost your day.';
     }
 
+    const storeName = this.settings?.store_name || 'ร้านค้า';
     return isThai
-      ? `เมนูแนะนำยอดนิยมของร้าน Mein Licht! คัดสรรเฉพาะวัตถุดิบชั้นดีที่สะอาดสดใหม่ นำมาปรุงสดแก้วต่อแก้ว/จานต่อจานอย่างพิถีพิถันเพื่อมอบรสชาติที่ดีที่สุดแก่คุณ`
-      : `Popular recommended menu by Mein Licht! Crafted meticulously with handpicked fresh, clean ingredients to deliver the ultimate flavor profile in every serving.`;
+      ? `เมนูแนะนำยอดนิยมของร้าน ${storeName}! คัดสรรเฉพาะวัตถุดิบชั้นดีที่สะอาดสดใหม่ นำมาปรุงสดแก้วต่อแก้ว/จานต่อจานอย่างพิถีพิถันเพื่อมอบรสชาติที่ดีที่สุดแก่คุณ`
+      : `Popular recommended menu by ${storeName}! Crafted meticulously with handpicked fresh, clean ingredients to deliver the ultimate flavor profile in every serving.`;
   }
 
   _getMockReviewsHTML(name) {
@@ -1462,7 +1612,7 @@ export class CustomerHome {
         author: isThai ? 'คุณพิชิตพล (Pichitpon)' : 'Pichitpon K.',
         stars: '★★★★★',
         text: isThai 
-          ? `อร่อยสมมงร้าน meinlicht ครับ! เมนู ${name} นี้วัตถุดิบสดสะอาดมาก รสชาติกลมกล่อมกลิ่นหอมชวนทาน แนะนำอย่างยิ่ง!`
+          ? `อร่อยสมมงร้าน ${this.settings?.store_name || 'ร้านค้า'} ครับ! เมนู ${name} นี้วัตถุดิบสดสะอาดมาก รสชาติกลมกล่อมกลิ่นหอมชวนทาน แนะนำอย่างยิ่ง!`
           : `Delicious and high-quality! The ${name} was fresh, well-seasoned, and aromatic. Definitely a must-try!`
       },
       {
