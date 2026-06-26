@@ -36,7 +36,8 @@
     "@supabase/supabase-js": "^2.98.0",
     "core-js": "^3.48.0",
     "dotenv": "^17.3.1",
-    "dotenv-webpack": "^9.0.0"
+    "dotenv-webpack": "^9.0.0",
+    "sortablejs": "^1.15.7"
   },
   "devDependencies": {
     "@babel/core": "^7.23.0",

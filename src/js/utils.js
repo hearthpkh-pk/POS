@@ -4,17 +4,25 @@ import { CONSTANTS } from './config/constants.js';
 export class Utils {
   // Date & Timezone utilities
   static getBangkokTime(date = new Date()) {
-    // Return Date object adjusted to Bangkok timezone (+7)
-    // Actually, in JS it's better to work with ISO strings for DB and let the Date formatted by Intl
-    const bangkokStr = new Date(date).toLocaleString('en-US', { timeZone: CONSTANTS.TIMEZONE });
-    return new Date(bangkokStr);
+    try {
+      const bangkokStr = new Date(date).toLocaleString('en-US', { timeZone: CONSTANTS.TIMEZONE });
+      const parsed = new Date(bangkokStr);
+      if (!isNaN(parsed.getTime())) return parsed;
+    } catch (e) {
+      console.error("Error formatting Bangkok time via toLocaleString:", e);
+    }
+    // Fallback to simple UTC+7 shift
+    const utcTime = new Date(date).getTime();
+    return new Date(utcTime + (7 * 60 * 60 * 1000));
   }
 
   static getTodayDateString(date = new Date()) {
-    const d = this.getBangkokTime(date);
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
+    // Bangkok is UTC + 7 hours. Adjust the epoch timestamp by +7 hours
+    const utcTime = new Date(date).getTime();
+    const bangkokTime = new Date(utcTime + (7 * 60 * 60 * 1000));
+    const year = bangkokTime.getUTCFullYear();
+    const month = String(bangkokTime.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(bangkokTime.getUTCDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   }
 
@@ -345,12 +353,68 @@ export class Utils {
     return result;
   }
 
-  static async measureTimeAsync(name, fn) {
-    const start = performance.now();
-    const result = await fn();
-    const end = performance.now();
-    console.log(`${name} took ${end - start} milliseconds`);
-    return result;
+  static updateFavicon(url) {
+    if (!url) return;
+    try {
+      const img = new Image();
+      img.crossOrigin = "anonymous"; // Bypass cross-origin restrictions for public Supabase URLs
+      
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const size = Math.min(img.width, img.height) || 128;
+          canvas.width = size;
+          canvas.height = size;
+          
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            // Draw a circular clip mask
+            ctx.beginPath();
+            ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+            ctx.closePath();
+            ctx.clip();
+            
+            // Draw cropped image inside the circle mask
+            ctx.drawImage(img, (img.width - size) / 2, (img.height - size) / 2, size, size, 0, 0, size, size);
+            
+            const circularDataUrl = canvas.toDataURL("image/png");
+            
+            // Set dynamic favicon link elements
+            let favLink = document.getElementById('dynamic-favicon') || document.querySelector("link[rel*='icon']");
+            if (!favLink) {
+              favLink = document.createElement('link');
+              favLink.id = 'dynamic-favicon';
+              favLink.rel = 'shortcut icon';
+              favLink.type = 'image/png';
+              document.head.appendChild(favLink);
+            }
+            favLink.href = circularDataUrl;
+
+            let appleLink = document.querySelector("link[rel='apple-touch-icon']");
+            if (appleLink) {
+              appleLink.href = circularDataUrl;
+            }
+          }
+        } catch (canvasErr) {
+          console.error("Canvas cropping failed, falling back to original url:", canvasErr);
+          let favLink = document.getElementById('dynamic-favicon') || document.querySelector("link[rel*='icon']");
+          if (favLink) {
+            favLink.href = url + (url.includes('?') ? '&' : '?') + 't=' + new Date().getTime();
+          }
+        }
+      };
+
+      img.onerror = () => {
+        let favLink = document.getElementById('dynamic-favicon') || document.querySelector("link[rel*='icon']");
+        if (favLink) {
+          favLink.href = url + (url.includes('?') ? '&' : '?') + 't=' + new Date().getTime();
+        }
+      };
+
+      img.src = url;
+    } catch (e) {
+      console.error("Error setting favicon:", e);
+    }
   }
 }
 

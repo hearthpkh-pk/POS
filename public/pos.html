@@ -5,14 +5,15 @@
     <meta charset="UTF-8">
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Me POS by Mein Licht</title>
+    <title>POS</title>
 
     <link rel="manifest" href="manifest.json">
+    <link rel="icon" id="dynamic-favicon" type="image/png" href="icon.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Me POS">
+    <meta name="apple-mobile-web-app-title" content="POS">
     <link rel="apple-touch-icon" href="icon.png">
-    <meta name="theme-color" content="#EA580C">
+    <meta name="theme-color" content="#007AFF">
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -33,13 +34,13 @@
 
     <div class="main-wrapper">
         <div
-            class="lg:hidden fixed top-0 left-0 right-0 h-14 bg-white border-b shadow-sm z-40 flex items-center px-4 justify-between">
+            class="lg:hidden fixed top-0 left-0 right-0 h-14 bg-white/85 backdrop-blur-md border-b border-gray-200/60 shadow-sm z-40 flex items-center px-4 justify-between">
             <div class="flex items-center">
                 <button onclick="window.app?.toggleSidebar()" class="text-gray-600 focus:outline-none p-2 mr-2"><i
                         class="fas fa-bars text-xl"></i></button>
-                <h1 class="text-lg font-black text-gray-800"><span class="text-red-600">M</span>e POS</h1>
+                <h1 class="text-lg font-black text-gray-800" id="store-title-mobile">POS</h1>
             </div>
-            <div class="text-xs text-gray-500" id="mobile-user-display">Staff</div>
+            <div class="text-xs text-gray-500 font-semibold" id="mobile-user-display">Staff</div>
         </div>
 
         <div id="sidebar-overlay"
@@ -48,8 +49,7 @@
         <div id="sidebar"
             class="sidebar fixed inset-y-0 left-0 transform -translate-x-full lg:relative lg:translate-x-0 lg:flex transition-transform duration-300 ease-in-out">
             <div class="p-6 border-b hidden lg:block">
-                <h1 class="text-2xl font-black text-gray-800"><span class="text-red-600">M</span>e POS</h1>
-                <p class="text-xs text-gray-400 mt-1">by Mein Licht</p>
+                <h1 class="text-2xl font-black text-gray-800" id="store-title-sidebar">POS</h1>
             </div>
             <div class="lg:hidden p-4 border-b flex justify-between items-center bg-gray-50">
                 <span class="font-bold text-gray-700">เมนูหลัก</span>
@@ -60,6 +60,8 @@
                 <div class="px-6 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider">หน้าร้าน</div>
                 <div id="nav-pos-orders" class="sidebar-item active"><i
                         class="fas fa-cash-register w-6 text-center"></i><span>ขาย / ออเดอร์</span></div>
+                <div id="nav-pos-preorders" class="sidebar-item"><i
+                        class="fas fa-calendar-check w-6 text-center"></i><span>รายการจองล่วงหน้า</span></div>
                 <a href="/" target="_blank" class="sidebar-item"><i
                         class="fas fa-store w-6 text-center"></i><span>ดูหน้าเว็บลูกค้า</span></a>
 
@@ -70,6 +72,8 @@
                         class="fas fa-history w-6 text-center"></i><span>ประวัติการขาย</span></div>
                 <div id="nav-admin-menu" class="sidebar-item"><i
                         class="fas fa-burger w-6 text-center"></i><span>จัดการเมนู</span></div>
+                <div id="nav-admin-store-settings" class="sidebar-item"><i
+                        class="fas fa-store w-6 text-center"></i><span>ตั้งค่าข้อมูลร้าน</span></div>
                 <div id="nav-admin-settings" class="sidebar-item"><i
                         class="fas fa-palette w-6 text-center"></i><span>ตั้งค่าหน้าเว็บ</span></div>
             </div>
@@ -82,7 +86,7 @@
         <div id="main-content-area" class="flex-1 h-full relative w-full pt-14 lg:pt-0 bg-gray-100">
             <div id="loading-spinner"
                 class="absolute inset-0 flex flex-col items-center justify-center bg-gray-100 z-50">
-                <svg class="animate-spin h-10 w-10 text-orange-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none"
+                <svg class="animate-spin h-10 w-10 text-[#007AFF] mb-4" xmlns="http://www.w3.org/2000/svg" fill="none"
                     viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                     <path class="opacity-75" fill="currentColor"
@@ -100,21 +104,22 @@
 
     <!-- Centralized Custom Modal -->
     <div id="custom-modal"
-        class="fixed inset-0 bg-black bg-opacity-60 hidden z-[60] flex items-center justify-center p-4">
+        class="fixed inset-0 hidden z-[60] p-4">
         <div id="modal-content-wrapper"
-            class="bg-white rounded-xl shadow-2xl overflow-hidden w-full max-w-md flex flex-col max-h-[90vh] relative transition-all scale-100">
-            <div class="bg-gray-50 px-5 py-3 border-b flex justify-between items-center shrink-0">
-                <h3 id="modal-title" class="text-lg font-bold text-gray-800"></h3>
+            class="ios-modal-content overflow-hidden w-full max-w-md flex flex-col max-h-[90vh] relative transition-all">
+            <div class="ios-modal-grab-handle"></div>
+            <div class="px-5 py-3 border-b flex justify-between items-center shrink-0">
+                <h3 id="modal-title" class="text-base font-bold text-gray-900"></h3>
                 <button onclick="document.getElementById('custom-modal').classList.add('hidden')"
                     class="text-gray-400 hover:text-gray-600 p-2 focus:outline-none"><i
                         class="fas fa-times"></i></button>
             </div>
-            <div id="modal-message" class="p-0 bg-gray-100 flex justify-center overflow-y-auto"></div>
-            <div id="modal-actions" class="bg-white px-5 py-3 border-t flex justify-end space-x-3 shrink-0">
+            <div id="modal-message" class="p-0 bg-[#F2F2F7] flex justify-center overflow-y-auto"></div>
+            <div id="modal-actions" class="bg-white px-5 py-4 border-t flex justify-end space-x-3 shrink-0">
                 <button id="modal-cancel-btn"
-                    class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm transition">ปิด</button>
+                    class="ios-action-btn ios-btn-secondary px-5 py-2 text-sm">ปิด</button>
                 <button id="modal-confirm-btn"
-                    class="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-bold shadow text-sm transition">ยืนยัน</button>
+                    class="ios-action-btn ios-btn-primary px-5 py-2 text-sm">ยืนยัน</button>
             </div>
         </div>
     </div>

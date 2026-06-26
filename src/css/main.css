@@ -1,8 +1,18 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Prompt:wght@300;400;500;600;700&display=swap');
 
+:root {
+    --ios-system-blue: #007AFF;
+    --ios-system-green: #34C759;
+    --ios-system-red: #FF3B30;
+    --ios-system-orange: #FF9500;
+    --ios-bg-primary: #F2F2F7;
+    --ios-bg-secondary: #FFFFFF;
+    --ios-separator: rgba(60, 60, 67, 0.12);
+}
+
 body { 
-    font-family: 'Inter', 'Prompt', sans-serif; 
-    background-color: #F3F4F6; 
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Inter', 'Prompt', sans-serif; 
+    background-color: var(--ios-bg-primary); 
     overflow: hidden;
     /* PWA Safe Area Fixes for iPhone X+ */
     padding-top: env(safe-area-inset-top);
@@ -31,20 +41,38 @@ body {
 
 .sidebar-item { display: flex; align-items: center; padding: 1rem 1.5rem; color: #4B5563; cursor: pointer; font-weight: 500; transition: all 0.15s; }
 .sidebar-item:hover { background-color: #F3F4F6; }
-.sidebar-item.active { color: #EA580C; background-color: #FFF7ED; border-right: 4px solid #EA580C; }
+.sidebar-item.active { color: var(--ios-system-blue); background-color: rgba(0, 122, 255, 0.08); border-right: 4px solid var(--ios-system-blue); }
 
 .pos-grid { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
 
 @media (min-width: 1024px) {
     .pos-grid { flex-direction: row; }
-    .pending-column { flex: 1.5; border-right: 1px solid #D1D5DB; height: 100%; }
+    .pending-column { flex: 1.5; border-right: 1px solid var(--ios-separator); height: 100%; }
     .detail-column { flex: 1; height: 100%; }
 }
 
 @media (max-width: 1023px) {
     .pending-column { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
-    .detail-column { height: 45%; flex-shrink: 0; border-top: 4px solid #EA580C; box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1); }
+    .detail-column { height: 45%; flex-shrink: 0; border-top: 1px solid var(--ios-separator); box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.06); }
 }
 
-.pending-column { background-color: #E5E7EB; display: flex; flex-direction: column; }
-.detail-column { background-color: #FFFFFF; display: flex; flex-direction: column; }
+.pending-column { background-color: var(--ios-bg-primary); display: flex; flex-direction: column; }
+.detail-column { background-color: var(--ios-bg-secondary); display: flex; flex-direction: column; }
+
+/* Print styling for thermal receipts */
+@media print {
+    body * {
+        visibility: hidden !important;
+    }
+    #print-receipt-area, #print-receipt-area * {
+        visibility: visible !important;
+    }
+    #print-receipt-area {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 80mm;
+        margin: 0;
+        padding: 0;
+    }
+}

@@ -1,4 +1,4 @@
-// Main Entry Point - Me POS by Mein Licht
+// Main Entry Point - POS
 import { App } from './core/App.js';
 import { CustomerHome } from './pages/customerHome.js';
 import { StaffLogin } from './pages/staffLogin.js';
@@ -8,7 +8,7 @@ import '../css/main.css';
 import '../css/components.css';
 
 // Log initialization
-console.log('Me POS by Mein Licht - Loading...');
+console.log('POS - Loading...');
 
 // Determine which portal to load based on URL
 const path = window.location.pathname.toLowerCase();

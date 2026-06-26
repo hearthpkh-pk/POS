@@ -6,7 +6,7 @@ export class AdminService {
     /**
      * Get total sales summary for a specific company and branch between dates
      */
-    static async getSalesDashboard(companyId, branchId, startDate, endDate) {
+    async getSalesDashboard(companyId, branchId, startDate, endDate) {
         // In PostgreSQL, it's best to use an RPC (Remote Procedure Call) for aggregations
         // But for now, we can query the orders table and aggregate here 
         // assuming volume is manageable in the MVP phase.
@@ -50,7 +50,7 @@ export class AdminService {
     /**
      * Get paginated order history
      */
-    static async getOrderHistory(companyId, limit = 50, offset = 0) {
+    async getOrderHistory(companyId, limit = 50, offset = 0) {
         try {
             const { data, error, count } = await supabase
                 .from('orders')

@@ -2,17 +2,19 @@
 <html lang="th">
 
 <head>
+    <script>window.location.replace('/pos');</script>
     <meta charset="UTF-8">
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Me POS - Employee Portal</title>
 
     <link rel="manifest" href="manifest.json">
+    <link rel="icon" id="dynamic-favicon" type="image/png" href="icon.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Me POS">
     <link class="favicon" rel="apple-touch-icon" href="icon.png">
-    <meta name="theme-color" content="#EA580C">
+    <meta name="theme-color" content="#007AFF">
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -82,7 +84,7 @@
         <div id="main-content-area" class="flex-1 h-full relative w-full pt-14 lg:pt-0 bg-gray-100">
             <div id="loading-spinner"
                 class="absolute inset-0 flex flex-col items-center justify-center bg-gray-100 z-50">
-                <svg class="animate-spin h-10 w-10 text-orange-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none"
+                <svg class="animate-spin h-10 w-10 text-[#007AFF] mb-4" xmlns="http://www.w3.org/2000/svg" fill="none"
                     viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                     <path class="opacity-75" fill="currentColor"
@@ -114,7 +116,7 @@
                 <button id="modal-cancel-btn"
                     class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm transition">ปิด</button>
                 <button id="modal-confirm-btn"
-                    class="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-bold shadow text-sm transition">ยืนยัน</button>
+                    class="px-4 py-2 bg-[#007AFF] text-white rounded-lg hover:bg-[#007AFF]/90 font-bold shadow text-sm transition">ยืนยัน</button>
             </div>
         </div>
     </div>
