@@ -416,6 +416,80 @@ export class Utils {
       console.error("Error setting favicon:", e);
     }
   }
+
+  static compressImage(file, options = { maxWidth: 1200, maxHeight: 1200, quality: 0.8 }) {
+    return new Promise((resolve) => {
+      if (!file || !file.type.startsWith('image/')) {
+        resolve(file);
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+          let width = img.width;
+          let height = img.height;
+
+          // Only scale down if width or height exceeds maximum
+          if (width > options.maxWidth || height > options.maxHeight) {
+            if (width > height) {
+              height = Math.round((height * options.maxWidth) / width);
+              width = options.maxWidth;
+            } else {
+              width = Math.round((width * options.maxHeight) / height);
+              height = options.maxHeight;
+            }
+          } else if (file.size <= 1.5 * 1024 * 1024) {
+            // If image is already smaller than max dimensions and under 1.5MB, no need to compress
+            resolve(file);
+            return;
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(file);
+            return;
+          }
+
+          // If converting to jpeg, draw white background first to avoid black transparency replacement
+          const targetType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+          if (targetType === 'image/jpeg') {
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, width, height);
+          }
+
+          ctx.drawImage(img, 0, 0, width, height);
+
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                resolve(file);
+                return;
+              }
+              const extension = targetType === 'image/png' ? 'png' : 'jpg';
+              const nameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+              const compressedFile = new File([blob], `${nameWithoutExt}_compressed.${extension}`, {
+                type: targetType,
+                lastModified: Date.now(),
+              });
+              resolve(compressedFile);
+            },
+            targetType,
+            targetType === 'image/jpeg' ? options.quality : undefined
+          );
+        };
+        img.onerror = () => resolve(file);
+      };
+      reader.onerror = () => resolve(file);
+    });
+  }
 }
 
 // Export commonly used functions
@@ -432,5 +506,6 @@ export const {
   downloadCSV,
   setSessionStorage,
   getSessionStorage,
-  removeSessionStorage
+  removeSessionStorage,
+  compressImage
 } = Utils;

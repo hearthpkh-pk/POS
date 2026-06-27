@@ -340,16 +340,12 @@ export class AdminMenuView {
             });
 
             const uploadAndSetImage = async (file) => {
-                // Validate file type and size (max 2MB)
+                // Validate file type
                 if (!file.type.startsWith('image/')) {
                     alert('ไฟล์ต้องเป็นรูปภาพประเภท JPG, PNG, หรือ WEBP');
                     return;
                 }
-                const maxSize = 2 * 1024 * 1024; // 2MB
-                if (file.size > maxSize) {
-                    alert('ขนาดไฟล์ต้องไม่เกิน 2 MB');
-                    return;
-                }
+
                 // Show loading placeholder
                 if (placeholder) placeholder.classList.add('hidden');
                 if (preview) {
@@ -359,12 +355,24 @@ export class AdminMenuView {
                 }
 
                 try {
-                    const ext = file.name.split('.').pop();
+                    // Compress image client-side automatically
+                    const compressedFile = await Utils.compressImage(file, {
+                        maxWidth: 1200,
+                        maxHeight: 1200,
+                        quality: 0.82
+                    });
+
+                    const maxSize = 2 * 1024 * 1024; // 2MB
+                    if (compressedFile.size > maxSize) {
+                        throw new Error('ขนาดไฟล์รูปภาพใหญ่เกินกว่า 2 MB แม้ว่าจะผ่านการบีบอัดแล้ว');
+                    }
+
+                    const ext = compressedFile.name.split('.').pop();
                     const filename = `menu_${Date.now()}.${ext}`;
 
                     const { data: uploadData, error: uploadError } = await supabase.storage
                         .from(STORAGE_BUCKET)
-                        .upload(filename, file, { upsert: true, contentType: file.type });
+                        .upload(filename, compressedFile, { upsert: true, contentType: compressedFile.type });
 
                     if (uploadError) throw uploadError;
 
