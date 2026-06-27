@@ -1,0 +1,10 @@
+- [x] Replace non-standard spacing classes in `POSMenuPanel.js` with standard Tailwind classes (`w-12`/`h-12`, `w-14`/`h-14`)
+- [x] Update loading spinner color in `admin.html` and `pos.html` to `#007AFF`
+- [x] Update meta `theme-color` in both `pos.html` and `admin.html` to `#007AFF`
+- [x] Update `App.js` login screen styling (accents/buttons/text) to iOS blue (`#007AFF`)
+- [x] Create database migration SQL for `variants` column
+- [x] Create `POSVariantModal` component for choosing variants (ไก่, หมู, เนื้อ)
+- [x] Clean up menu items IDs in `POSService.js` to support checkout/parking of variant items
+- [x] Fix `image_url` database save omission in `App.js` BOH saving
+- [x] Rewrite browser menu import utility with variants data mapping
+- [x] Compile and verify production build successfully

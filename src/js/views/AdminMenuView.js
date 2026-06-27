@@ -356,19 +356,22 @@ export class AdminMenuView {
 
                 try {
                     // Compress image client-side automatically
+                    console.log('[AdminMenuView] Compressing selected file:', file.name, 'size:', file.size);
                     const compressedFile = await Utils.compressImage(file, {
                         maxWidth: 1200,
                         maxHeight: 1200,
                         quality: 0.82
                     });
+                    console.log('[AdminMenuView] Compression returned file:', compressedFile.name, 'size:', compressedFile.size, 'type:', compressedFile.type);
 
                     const maxSize = 2 * 1024 * 1024; // 2MB
                     if (compressedFile.size > maxSize) {
-                        throw new Error('ขนาดไฟล์รูปภาพใหญ่เกินกว่า 2 MB แม้ว่าจะผ่านการบีบอัดแล้ว');
+                        throw new Error(`ขนาดไฟล์รูปภาพใหญ่เกินกว่า 2 MB แม้ว่าจะผ่านการบีบอัดแล้ว (${Math.round(compressedFile.size / 1024 / 1024 * 100) / 100} MB)`);
                     }
 
                     const ext = compressedFile.name.split('.').pop();
                     const filename = `menu_${Date.now()}.${ext}`;
+                    console.log('[AdminMenuView] Uploading to Supabase bucket:', STORAGE_BUCKET, 'filename:', filename);
 
                     const { data: uploadData, error: uploadError } = await supabase.storage
                         .from(STORAGE_BUCKET)

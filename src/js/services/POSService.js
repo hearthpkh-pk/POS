@@ -171,14 +171,17 @@ export class POSService {
             }
 
             // Insert new order items
-            const orderItems = this.cart.map(item => ({
-                order_id: orderHeader.id,
-                menu_item_id: item.id,
-                item_name_th: item.name_th,
-                price_per_unit_cents: item.base_price_cents,
-                quantity: item.quantity,
-                total_line_cents: item.base_price_cents * item.quantity
-            }));
+            const orderItems = this.cart.map(item => {
+                const cleanId = item.id.split('-').slice(0, 5).join('-');
+                return {
+                    order_id: orderHeader.id,
+                    menu_item_id: cleanId,
+                    item_name_th: item.name_th,
+                    price_per_unit_cents: item.base_price_cents,
+                    quantity: item.quantity,
+                    total_line_cents: item.base_price_cents * item.quantity
+                };
+            });
 
             const { error: itemsError } = await supabase
                 .from('order_items')
@@ -269,14 +272,17 @@ export class POSService {
             }
 
             // Insert new order items
-            const orderItems = this.cart.map(item => ({
-                order_id: orderHeader.id,
-                menu_item_id: item.id,
-                item_name_th: item.name_th,
-                price_per_unit_cents: item.base_price_cents,
-                quantity: item.quantity,
-                total_line_cents: item.base_price_cents * item.quantity
-            }));
+            const orderItems = this.cart.map(item => {
+                const cleanId = item.id.split('-').slice(0, 5).join('-');
+                return {
+                    order_id: orderHeader.id,
+                    menu_item_id: cleanId,
+                    item_name_th: item.name_th,
+                    price_per_unit_cents: item.base_price_cents,
+                    quantity: item.quantity,
+                    total_line_cents: item.base_price_cents * item.quantity
+                };
+            });
 
             const { error: itemsError } = await supabase
                 .from('order_items')

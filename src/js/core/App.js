@@ -442,6 +442,7 @@ name_en: itemData.name_en,
 base_price_cents: itemData.base_price_cents,
 category_id: itemData.category_id,
 is_sold_out: itemData.is_sold_out,
+image_url: itemData.image_url,
 updated_at: new Date().toISOString()
 })
 .eq('id', editingId);
@@ -461,6 +462,7 @@ name_en: itemData.name_en,
 base_price_cents: itemData.base_price_cents,
 category_id: itemData.category_id,
 is_sold_out: itemData.is_sold_out,
+image_url: itemData.image_url,
 is_active: true
 });
 
@@ -524,32 +526,35 @@ const container = document.getElementById('app-container');
 if (!container) return;
 
 container.innerHTML = `
-<div class="min-h-full flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-<div class="max-w-md w-full space-y-8 bg-white p-8 rounded-2xl shadow-xl border">
+<div class="min-h-full flex items-center justify-center bg-[#F2F2F7] py-12 px-4 sm:px-6 lg:px-8">
+<div class="max-w-md w-full bg-white/80 backdrop-blur-md p-8 rounded-3xl shadow-xl border border-gray-200/50">
 <div>
-<h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900 flex items-center justify-center gap-2">
-<span class="text-orange-600 font-black">Me</span> POS
+<div class="mx-auto h-16 w-16 bg-[#007AFF] text-white rounded-2xl flex items-center justify-center shadow-lg shadow-[#007AFF]/25 mb-4">
+<i class="fas fa-cash-register text-2xl"></i>
+</div>
+<h2 class="text-center text-2xl font-black text-gray-900 tracking-tight">
+Me <span class="text-[#007AFF]">POS</span>
 </h2>
-<p class="mt-2 text-center text-sm text-gray-600">
+<p class="mt-2 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">
 ระบบขายหน้าร้านสำหรับผู้ดูแลระบบ
 </p>
 </div>
-<form class="mt-8 space-y-6" id="pos-login-form">
-<div class="rounded-md shadow-sm -space-y-px">
-<div class="mb-4">
-<label for="login-email" class="block text-sm font-bold text-gray-700 mb-1">อีเมลผู้ใช้งาน</label>
-<input id="login-email" name="email" type="email" required class="appearance-none rounded-lg relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm" placeholder="admin@meinlicht.com">
+<form class="mt-8 space-y-5" id="pos-login-form">
+<div class="space-y-4">
+<div>
+<label for="login-email" class="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider">อีเมลผู้ใช้งาน</label>
+<input id="login-email" name="email" type="email" required class="appearance-none rounded-2xl relative block w-full px-4 py-3 bg-[#F2F2F7] border border-transparent placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007AFF] focus:bg-white sm:text-sm transition duration-200" placeholder="admin@meinlicht.com">
 </div>
 <div>
-<label for="login-password" class="block text-sm font-bold text-gray-700 mb-1">รหัสผ่าน</label>
-<input id="login-password" name="password" type="password" required class="appearance-none rounded-lg relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm" placeholder="••••••••">
+<label for="login-password" class="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider">รหัสผ่าน</label>
+<input id="login-password" name="password" type="password" required class="appearance-none rounded-2xl relative block w-full px-4 py-3 bg-[#F2F2F7] border border-transparent placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007AFF] focus:bg-white sm:text-sm transition duration-200" placeholder="••••••••">
 </div>
 </div>
 
-<div id="login-error-msg" class="text-red-600 text-sm text-center font-bold hidden bg-red-50 p-2 rounded-lg"></div>
+<div id="login-error-msg" class="text-[#FF3B30] text-xs text-center font-bold hidden bg-[#FF3B30]/10 p-3 rounded-2xl border border-[#FF3B30]/20"></div>
 
-<div>
-<button type="submit" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-bold rounded-lg text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition">
+<div class="pt-2">
+<button type="submit" class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-semibold rounded-2xl text-white bg-[#007AFF] hover:bg-[#007AFF]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#007AFF] shadow-lg shadow-[#007AFF]/15 transition duration-200 active:scale-[0.98]">
 เข้าสู่ระบบ
 </button>
 </div>

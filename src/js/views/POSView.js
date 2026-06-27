@@ -10,6 +10,7 @@ import { POSReceiptModal } from './pos/modals/POSReceiptModal.js';
 import { POSSortModal } from './pos/modals/POSSortModal.js';
 import { POSParkModal } from './pos/modals/POSParkModal.js';
 import { POSCheckoutModal } from './pos/modals/POSCheckoutModal.js';
+import { POSVariantModal } from './pos/modals/POSVariantModal.js';
 
 export class POSView {
     constructor(containerId) {
@@ -113,8 +114,22 @@ export class POSView {
             POSMenuPanel.bindEvents(this.container, this.menuTree, {
                 onAddMenu: (item) => {
                     if (item.is_sold_out) return;
-                    posService.addItem(item, 1);
-                    this.render();
+                    if (item.variants && item.variants.length > 0) {
+                        POSVariantModal.show(item, (selectedVariant) => {
+                            const variantItem = {
+                                ...item,
+                                id: `${item.id}-${selectedVariant.name_en}`,
+                                name_th: `${item.name_th} (${selectedVariant.name_th})`,
+                                name_en: item.name_en ? `${item.name_en} (${selectedVariant.name_en})` : selectedVariant.name_en,
+                                base_price_cents: selectedVariant.price_cents
+                            };
+                            posService.addItem(variantItem, 1);
+                            this.render();
+                        });
+                    } else {
+                        posService.addItem(item, 1);
+                        this.render();
+                    }
                 },
                 onToggleSortItems: async () => {
                     if (this.isSortingMenuItems) {

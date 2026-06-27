@@ -417,9 +417,18 @@ export class Utils {
     }
   }
 
-  static compressImage(file, options = { maxWidth: 1200, maxHeight: 1200, quality: 0.8 }) {
+  static compressImage(file, options = { maxWidth: 1000, maxHeight: 1000, quality: 0.75, maxSizeBytes: 1.5 * 1024 * 1024 }) {
+    console.log('[CompressImage] Starting compression for file:', { name: file?.name, type: file?.type, size: file?.size });
     return new Promise((resolve) => {
       if (!file || !file.type.startsWith('image/')) {
+        console.warn('[CompressImage] File is not an image or invalid. Resolving original.');
+        resolve(file);
+        return;
+      }
+
+      // If the original file is already small enough, resolve it directly
+      if (file.size <= options.maxSizeBytes) {
+        console.log('[CompressImage] Original file is already under limit. Size:', file.size);
         resolve(file);
         return;
       }
@@ -427,13 +436,15 @@ export class Utils {
       const reader = new FileReader();
       reader.readAsDataURL(file);
       reader.onload = (event) => {
+        console.log('[CompressImage] FileReader onload success.');
         const img = new Image();
         img.src = event.target.result;
         img.onload = () => {
           let width = img.width;
           let height = img.height;
+          console.log('[CompressImage] Image loaded successfully. Dimensions:', width, 'x', height);
 
-          // Only scale down if width or height exceeds maximum
+          // Force resizing to a reasonable max dimension for POS thumbnails
           if (width > options.maxWidth || height > options.maxHeight) {
             if (width > height) {
               height = Math.round((height * options.maxWidth) / width);
@@ -442,52 +453,80 @@ export class Utils {
               width = Math.round((width * options.maxHeight) / height);
               height = options.maxHeight;
             }
-          } else if (file.size <= 1.5 * 1024 * 1024) {
-            // If image is already smaller than max dimensions and under 1.5MB, no need to compress
-            resolve(file);
-            return;
+            console.log('[CompressImage] Resized target dimensions:', width, 'x', height);
           }
 
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
+          let currentQuality = options.quality;
+          let currentWidth = width;
+          let currentHeight = height;
+          // Force JPEG to ensure maximum compression efficiency
+          const currentType = 'image/jpeg';
+          let attempt = 0;
 
-          const ctx = canvas.getContext('2d');
-          if (!ctx) {
-            resolve(file);
-            return;
-          }
+          const compressCycle = () => {
+            attempt++;
+            console.log(`[CompressImage] Cycle #${attempt} - Quality: ${currentQuality}, Dimensions: ${currentWidth}x${currentHeight}`);
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = currentWidth;
+            canvas.height = currentHeight;
+            const ctx = canvas.getContext('2d');
 
-          // If converting to jpeg, draw white background first to avoid black transparency replacement
-          const targetType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
-          if (targetType === 'image/jpeg') {
+            if (!ctx) {
+              console.error('[CompressImage] Canvas context is null');
+              resolve(file);
+              return;
+            }
+
+            // Fill white background (since we are converting to JPEG)
             ctx.fillStyle = '#FFFFFF';
-            ctx.fillRect(0, 0, width, height);
-          }
+            ctx.fillRect(0, 0, currentWidth, currentHeight);
+            ctx.drawImage(img, 0, 0, currentWidth, currentHeight);
 
-          ctx.drawImage(img, 0, 0, width, height);
+            canvas.toBlob(
+              (blob) => {
+                if (!blob) {
+                  console.error('[CompressImage] toBlob returned null');
+                  resolve(file);
+                  return;
+                }
 
-          canvas.toBlob(
-            (blob) => {
-              if (!blob) {
-                resolve(file);
-                return;
-              }
-              const extension = targetType === 'image/png' ? 'png' : 'jpg';
-              const nameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
-              const compressedFile = new File([blob], `${nameWithoutExt}_compressed.${extension}`, {
-                type: targetType,
-                lastModified: Date.now(),
-              });
-              resolve(compressedFile);
-            },
-            targetType,
-            targetType === 'image/jpeg' ? options.quality : undefined
-          );
+                console.log(`[CompressImage] Cycle #${attempt} output size:`, blob.size, `(${Math.round(blob.size / 1024)} KB)`);
+
+                // Iterative reduction if it's still too large (limit to 8 attempts)
+                if (blob.size > options.maxSizeBytes && attempt < 8) {
+                  // Reduce quality and scale down by 20%
+                  currentQuality = Math.max(0.2, currentQuality - 0.15);
+                  currentWidth = Math.round(currentWidth * 0.8);
+                  currentHeight = Math.round(currentHeight * 0.8);
+                  compressCycle();
+                } else {
+                  // Resolve with the compressed file
+                  const nameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+                  const compressedFile = new File([blob], `${nameWithoutExt}_compressed.jpg`, {
+                    type: 'image/jpeg',
+                    lastModified: Date.now(),
+                  });
+                  console.log('[CompressImage] Compressed successfully. Final size:', compressedFile.size);
+                  resolve(compressedFile);
+                }
+              },
+              'image/jpeg',
+              currentQuality
+            );
+          };
+
+          compressCycle();
         };
-        img.onerror = () => resolve(file);
+        img.onerror = (err) => {
+          console.error('[CompressImage] img.onload failed', err);
+          resolve(file);
+        };
       };
-      reader.onerror = () => resolve(file);
+      reader.onerror = (err) => {
+        console.error('[CompressImage] reader.onload failed', err);
+        resolve(file);
+      };
     });
   }
 }
