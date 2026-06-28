@@ -41,8 +41,8 @@ this.handleNewOrder();
 this.views.pos.onParkCallback = async (tableId) => {
 await this.handleParkOrder(tableId);
 };
-this.views.pos.onCheckoutCallback = async (paymentMethod, notes) => {
-await this.handleCheckout(paymentMethod, notes);
+this.views.pos.onCheckoutCallback = async (paymentMethod, notes, memberPhone, pointsDelta, redeemedDiscountCents) => {
+await this.handleCheckout(paymentMethod, notes, memberPhone, pointsDelta, redeemedDiscountCents);
 };
 
 // Admin Menu View Callbacks
@@ -57,6 +57,33 @@ await this.handleDeleteMenu(id);
 };
 this.views.menu.onCancelEditCallback = () => {
 this.handleCancelEditMenu();
+};
+this.views.menu.onSaveCategoryCallback = async (categoryData) => {
+await this.handleSaveCategory(categoryData);
+};
+this.views.menu.onDeleteCategoryCallback = async (id) => {
+await this.handleDeleteCategory(id);
+};
+this.views.menu.onToggleSoldOutCallback = async (id, isSoldOut) => {
+await this.handleToggleSoldOut(id, isSoldOut);
+};
+this.views.menu.onSaveModifierGroupCallback = async (groupData) => {
+await this.handleSaveModifierGroup(groupData);
+};
+this.views.menu.onDeleteModifierGroupCallback = async (id) => {
+await this.handleDeleteModifierGroup(id);
+};
+this.views.menu.onSaveModifierOptionCallback = async (optionData) => {
+await this.handleSaveModifierOption(optionData);
+};
+this.views.menu.onDeleteModifierOptionCallback = async (id, groupId) => {
+this.handleDeleteModifierOption(id, groupId);
+};
+this.views.menu.onToggleModifierOptionSoldOutCallback = async (id, isSoldOut, groupId) => {
+await this.handleToggleModifierOptionSoldOut(id, isSoldOut, groupId);
+};
+this.views.menu.onUpdateModifierOptionCallback = async (id, updateData, groupId) => {
+await this.handleUpdateModifierOption(id, updateData, groupId);
 };
 
 // Data Cache
@@ -84,14 +111,7 @@ return;
 // Bind user display info & logout handlers
 const displayEl = document.getElementById('mobile-user-display');
 if (displayEl) {
-displayEl.innerHTML = `<span class="truncate max-w-[120px] inline-block font-semibold">${session.user.email}</span> <a href="#" id="btn-logout" class="text-red-500 font-bold ml-2 hover:underline">Log Out</a>`;
-displayEl.querySelector('#btn-logout')?.addEventListener('click', async (e) => {
-e.preventDefault();
-if (confirm('คุณต้องการออกจากระบบหรือไม่?')) {
-await supabase.auth.signOut();
-window.location.reload();
-}
-});
+    displayEl.innerHTML = `<span class="truncate max-w-[150px] inline-block font-semibold text-gray-500"><i class="fas fa-user-circle mr-1 text-gray-400"></i>${session.user.email}</span>`;
 }
 
 const sysStatusEl = document.getElementById('sys-status');
@@ -199,6 +219,14 @@ if (viewName === 'pos_orders') {
 const pending = await posService.fetchPendingOrders(this.companyId, this.branchId);
 this.views.pos.setPendingOrders(pending);
 }
+
+// Fetch modifiers data for POS cart selections
+const [modGroupsResult, linksResult] = await Promise.all([
+    supabase.from('modifier_groups').select('*, modifier_options(*)').eq('company_id', this.companyId).eq('is_active', true),
+    supabase.from('menu_item_modifier_groups').select('*')
+]);
+this.views.pos.setModifierData(modGroupsResult.data || [], linksResult.data || []);
+
 this.views.pos.currentView = viewName;
 this.views.pos.render();
 }
@@ -220,18 +248,18 @@ const { data } = await adminService.getOrderHistory(this.companyId);
 this.views.history.render(data);
 }
 else if (viewName === 'admin_menu') {
-const { data: categories, error } = await supabase
-.from('categories')
-.select('*')
-.eq('company_id', this.companyId)
-.eq('is_active', true)
-.order('sort_order', { ascending: true });
+const [catResult, modResult, linkResult] = await Promise.all([
+    supabase.from('categories').select('*').eq('company_id', this.companyId).eq('is_active', true).order('sort_order', { ascending: true }),
+    supabase.from('modifier_groups').select('*, modifier_options(*)').eq('company_id', this.companyId).eq('is_active', true),
+    supabase.from('menu_item_modifier_groups').select('*')
+]);
 
-if (error) {
-console.error("Error fetching categories:", error);
-}
+if (catResult.error) console.error("Error fetching categories:", catResult.error);
+if (modResult.error) console.error("Error fetching modifier groups:", modResult.error);
 
-this.views.menu.setCategories(categories || []);
+this.views.menu.setCategories(catResult.data || []);
+this.views.menu.setModifierGroups(modResult.data || []);
+this.views.menu.setItemModifierGroups(linkResult.data || []);
 this.views.menu.render(this.menuData);
 }
 else if (viewName === 'admin_settings') {
@@ -251,13 +279,31 @@ document.getElementById('loading-spinner')?.classList.add('hidden');
 }
 }
 
-async handleCheckout(paymentMethod = 'CASH', notes = '') {
+async handleCheckout(paymentMethod = 'CASH', notes = '', memberPhone = null, pointsDelta = 0, redeemedDiscountCents = 0) {
 try {
 document.getElementById('loading-spinner')?.classList.remove('hidden');
+
+// Apply points redemption discount to the cart service temporarily so checkout totals match
+if (redeemedDiscountCents > 0) {
+    posService.applyDiscount('AMOUNT', Utils.centsToBaht(redeemedDiscountCents));
+}
+
 // For now, fake a cashier UUID (In reality, get from auth)
 const cashierId = '00000000-0000-0000-0000-000000000000';
 
 const { orderHeader, deletedResId } = await posService.checkout(this.companyId, this.branchId, cashierId, paymentMethod, notes);
+
+// Update member points in DB if member checked out
+if (memberPhone && pointsDelta !== 0) {
+    const { error: pointsError } = await supabase.rpc('adjust_member_points', {
+        company_uuid: this.companyId,
+        member_phone: memberPhone,
+        points_delta: pointsDelta
+    });
+    if (pointsError) {
+        console.error("Error updating member points:", pointsError);
+    }
+}
 
 if (deletedResId) {
 // If it was imported from a reservation, clean it up from Supabase
@@ -358,17 +404,50 @@ items = [];
 
 // 3. Match items with menuData and add to cart
 items.forEach(item => {
-const menuItem = this.menuData.find(m => m.id === item.menu_id);
+const cleanId = item.menu_id.split('-').slice(0, 5).join('-');
+const menuItem = this.menuData.find(m => m.id === cleanId);
 if (menuItem) {
-posService.addItem(menuItem, item.qty);
+    if (item.modifiers && item.modifiers.length > 0) {
+        let totalModifierPrice = 0;
+        let nameSuffixTh = item.modifiers.map(o => o.name_th).join(', ');
+        let nameSuffixEn = item.modifiers.map(o => o.name_en || o.name_th).join(', ');
+        item.modifiers.forEach(o => { totalModifierPrice += o.price_cents; });
+
+        const variantItem = {
+            ...menuItem,
+            id: item.menu_id,
+            name_th: `${menuItem.name_th} (${nameSuffixTh})`,
+            name_en: menuItem.name_en ? `${menuItem.name_en} (${nameSuffixEn})` : nameSuffixEn,
+            base_price_cents: menuItem.base_price_cents + totalModifierPrice,
+            ordered_modifiers: item.modifiers
+        };
+        posService.addItem(variantItem, item.qty);
+        return;
+    } else if (item.menu_id.includes('-') && menuItem.variants) {
+        const variantSuffix = item.menu_id.split('-').slice(5).join('-');
+        const parsedVariants = typeof menuItem.variants === 'string' ? JSON.parse(menuItem.variants) : menuItem.variants;
+        const selectedVariant = parsedVariants?.find(v => v.name_en === variantSuffix);
+        if (selectedVariant) {
+            const variantItem = {
+                ...menuItem,
+                id: item.menu_id,
+                name_th: `${menuItem.name_th} (${selectedVariant.name_th})`,
+                name_en: menuItem.name_en ? `${menuItem.name_en} (${selectedVariant.name_en})` : selectedVariant.name_en,
+                base_price_cents: selectedVariant.price_cents
+            };
+            posService.addItem(variantItem, item.qty);
+            return;
+        }
+    }
+    posService.addItem(menuItem, item.qty);
 } else {
-// Fallback if item id doesn't match exactly (e.g. deleted or ID mismatch)
-// Build a virtual menu item
-posService.addItem({
-id: item.menu_id,
-name_th: item.name,
-base_price_cents: Utils.bahtToCents(item.price),
-}, item.qty);
+    // Fallback if item id doesn't match exactly (e.g. deleted or ID mismatch)
+    // Build a virtual menu item
+    posService.addItem({
+        id: item.menu_id,
+        name_th: item.name,
+        base_price_cents: Utils.bahtToCents(item.price),
+    }, item.qty);
 }
 });
 
@@ -432,6 +511,8 @@ async handleSaveMenu(itemData, editingId) {
 try {
 document.getElementById('loading-spinner')?.classList.remove('hidden');
 
+let targetId = editingId;
+
 if (editingId) {
 // Update
 const { error } = await supabase
@@ -443,6 +524,7 @@ base_price_cents: itemData.base_price_cents,
 category_id: itemData.category_id,
 is_sold_out: itemData.is_sold_out,
 image_url: itemData.image_url,
+variants: itemData.variants,
 updated_at: new Date().toISOString()
 })
 .eq('id', editingId);
@@ -452,7 +534,7 @@ this.alert('แก้ไขเมนูสำเร็จ!');
 } else {
 // Insert
 const sku = `SKU-${Date.now()}`;
-const { error } = await supabase
+const { data, error } = await supabase
 .from('menu_items')
 .insert({
 company_id: this.companyId,
@@ -463,11 +545,34 @@ base_price_cents: itemData.base_price_cents,
 category_id: itemData.category_id,
 is_sold_out: itemData.is_sold_out,
 image_url: itemData.image_url,
+variants: itemData.variants,
 is_active: true
-});
+})
+.select();
 
 if (error) throw error;
+targetId = data[0].id;
 this.alert('เพิ่มเมนูสำเร็จ!');
+}
+
+// Update menu item modifier groups
+// 1. Delete old links
+await supabase
+.from('menu_item_modifier_groups')
+.delete()
+.eq('menu_item_id', targetId);
+
+// 2. Insert new links
+if (itemData.linked_group_ids && itemData.linked_group_ids.length > 0) {
+const links = itemData.linked_group_ids.map(groupId => ({
+menu_item_id: targetId,
+modifier_group_id: groupId
+}));
+const { error: linkError } = await supabase
+.from('menu_item_modifier_groups')
+.insert(links);
+
+if (linkError) throw linkError;
 }
 
 // Refresh menu cache
@@ -481,6 +586,82 @@ console.error("Save menu error:", e);
 this.alert(e.message || "เกิดข้อผิดพลาดในการบันทึกเมนู");
 } finally {
 document.getElementById('loading-spinner')?.classList.add('hidden');
+}
+}
+
+async handleSaveCategory(categoryData) {
+try {
+document.getElementById('loading-spinner')?.classList.remove('hidden');
+
+const { error } = await supabase
+.from('categories')
+.insert({
+company_id: this.companyId,
+name_th: categoryData.name_th,
+name_en: categoryData.name_en,
+sort_order: parseInt(categoryData.sort_order) || 0,
+is_active: true
+});
+
+if (error) throw error;
+this.alert('เพิ่มหมวดหมู่สำเร็จ!');
+
+// Refresh categories and views
+await this.changeView('admin_menu');
+
+// Re-open category modal
+this.views.menu.showCategoriesModal();
+} catch (e) {
+console.error("Save category error:", e);
+this.alert(e.message || "เกิดข้อผิดพลาดในการบันทึกหมวดหมู่");
+} finally {
+document.getElementById('loading-spinner')?.classList.add('hidden');
+}
+}
+
+async handleDeleteCategory(id) {
+try {
+document.getElementById('loading-spinner')?.classList.remove('hidden');
+
+const { error } = await supabase
+.from('categories')
+.update({ is_active: false })
+.eq('id', id);
+
+if (error) throw error;
+this.alert('ลบหมวดหมู่สำเร็จ!');
+
+// Refresh categories and views
+await this.changeView('admin_menu');
+
+// Re-open category modal
+this.views.menu.showCategoriesModal();
+} catch (e) {
+console.error("Delete category error:", e);
+this.alert(e.message || "เกิดข้อผิดพลาดในการลบหมวดหมู่");
+} finally {
+document.getElementById('loading-spinner')?.classList.add('hidden');
+}
+}
+
+async handleToggleSoldOut(id, isSoldOut) {
+try {
+const { error } = await supabase
+.from('menu_items')
+.update({ is_sold_out: isSoldOut, updated_at: new Date().toISOString() })
+.eq('id', id);
+
+if (error) throw error;
+
+// Update local cache
+const item = this.menuData.find(m => m.id === id);
+if (item) {
+item.is_sold_out = isSoldOut;
+}
+this.views.pos.setMenu(this.menuData);
+} catch (e) {
+console.error("Toggle sold out error:", e);
+this.alert("ไม่สามารถเปลี่ยนสถานะสินค้าได้: " + e.message);
 }
 }
 
@@ -516,6 +697,172 @@ document.getElementById('loading-spinner')?.classList.add('hidden');
 
 handleCancelEditMenu() {
 this.changeView('admin_menu');
+}
+
+async handleSaveModifierGroup(groupData) {
+try {
+document.getElementById('loading-spinner')?.classList.remove('hidden');
+
+const { error } = await supabase
+.from('modifier_groups')
+.insert({
+company_id: this.companyId,
+name_th: groupData.name_th,
+name_en: groupData.name_en,
+min_selection: parseInt(groupData.min_selection) || 0,
+max_selection: parseInt(groupData.max_selection) || 1,
+is_active: true
+});
+
+if (error) throw error;
+this.alert('เพิ่มกลุ่มตัวเลือกเสริมสำเร็จ!');
+
+// Refresh categories and views
+await this.changeView('admin_menu');
+
+// Re-open modifier modal
+this.views.menu.showModifiersModal();
+} catch (e) {
+console.error("Save modifier group error:", e);
+this.alert(e.message || "เกิดข้อผิดพลาดในการบันทึกกลุ่มตัวเลือกเสริม");
+} finally {
+document.getElementById('loading-spinner')?.classList.add('hidden');
+}
+}
+
+async handleDeleteModifierGroup(id) {
+try {
+document.getElementById('loading-spinner')?.classList.remove('hidden');
+
+const { error } = await supabase
+.from('modifier_groups')
+.update({ is_active: false })
+.eq('id', id);
+
+if (error) throw error;
+this.alert('ลบกลุ่มตัวเลือกเสริมสำเร็จ!');
+
+// Refresh categories and views
+await this.changeView('admin_menu');
+
+// Re-open modifier modal
+this.views.menu.showModifiersModal();
+} catch (e) {
+console.error("Delete modifier group error:", e);
+this.alert(e.message || "เกิดข้อผิดพลาดในการลบกลุ่มตัวเลือกเสริม");
+} finally {
+document.getElementById('loading-spinner')?.classList.add('hidden');
+}
+}
+
+async handleSaveModifierOption(optionData) {
+try {
+document.getElementById('loading-spinner')?.classList.remove('hidden');
+
+const { error } = await supabase
+.from('modifier_options')
+.insert({
+modifier_group_id: optionData.modifier_group_id,
+name_th: optionData.name_th,
+name_en: optionData.name_en,
+price_cents: parseInt(optionData.price_cents) || 0,
+image_url: optionData.image_url,
+is_sold_out: false,
+is_active: true
+});
+
+if (error) throw error;
+this.alert('เพิ่มตัวเลือกเสริมสำเร็จ!');
+
+// Refresh categories and views
+await this.changeView('admin_menu');
+
+// Re-open modifier options modal
+this.views.menu.showModifierOptionsModal(optionData.modifier_group_id);
+} catch (e) {
+console.error("Save modifier option error:", e);
+this.alert(e.message || "เกิดข้อผิดพลาดในการบันทึกตัวเลือกเสริม");
+} finally {
+document.getElementById('loading-spinner')?.classList.add('hidden');
+}
+}
+
+async handleDeleteModifierOption(id, groupId) {
+try {
+document.getElementById('loading-spinner')?.classList.remove('hidden');
+
+const { error } = await supabase
+.from('modifier_options')
+.update({ is_active: false })
+.eq('id', id);
+
+if (error) throw error;
+this.alert('ลบตัวเลือกเสริมสำเร็จ!');
+
+// Refresh categories and views
+await this.changeView('admin_menu');
+
+// Re-open modifier options modal
+this.views.menu.showModifierOptionsModal(groupId);
+} catch (e) {
+console.error("Delete modifier option error:", e);
+this.alert(e.message || "เกิดข้อผิดพลาดในการลบตัวเลือกเสริม");
+} finally {
+document.getElementById('loading-spinner')?.classList.add('hidden');
+}
+}
+
+async handleToggleModifierOptionSoldOut(id, isSoldOut, groupId) {
+    try {
+        document.getElementById('loading-spinner')?.classList.remove('hidden');
+
+        const { error } = await supabase
+            .from('modifier_options')
+            .update({ is_sold_out: isSoldOut })
+            .eq('id', id);
+
+        if (error) throw error;
+
+        // Refresh data
+        await this.changeView('admin_menu');
+
+        // Re-open modifier options modal
+        this.views.menu.showModifierOptionsModal(groupId);
+    } catch (e) {
+        console.error("Toggle modifier option soldout error:", e);
+        this.alert(e.message || "เกิดข้อผิดพลาดในการเปลี่ยนสถานะตัวเลือกเสริม");
+    } finally {
+        document.getElementById('loading-spinner')?.classList.add('hidden');
+    }
+}
+
+async handleUpdateModifierOption(id, updateData, groupId) {
+    try {
+        document.getElementById('loading-spinner')?.classList.remove('hidden');
+
+        const { error } = await supabase
+            .from('modifier_options')
+            .update({
+                name_th: updateData.name_th,
+                name_en: updateData.name_en,
+                price_cents: parseInt(updateData.price_cents) || 0,
+                image_url: updateData.image_url,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', id);
+
+        if (error) throw error;
+        this.alert('แก้ไขตัวเลือกเสริมสำเร็จ!');
+
+        // Refresh data and re-open modal
+        await this.changeView('admin_menu');
+        this.views.menu.showModifierOptionsModal(groupId);
+    } catch (e) {
+        console.error("Update modifier option error:", e);
+        this.alert(e.message || "เกิดข้อผิดพลาดในการแก้ไขตัวเลือกเสริม");
+    } finally {
+        document.getElementById('loading-spinner')?.classList.add('hidden');
+    }
 }
 
 renderLoginScreen() {

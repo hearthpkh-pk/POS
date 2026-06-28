@@ -117,10 +117,15 @@ export class CustomerHome {
   // ──────────────────────────────────────────────
   async _init() {
     // Load all settings from DB in parallel with menu_items from POS
-    const [settingsResult, menuItemsResult] = await Promise.all([
+    const [settingsResult, menuItemsResult, modGroupsResult, linksResult] = await Promise.all([
       supabase.from('restaurant_settings').select('key, value'),
       supabase.from('menu_items').select('*, categories(id, name_th, name_en, sort_order)').eq('is_active', true),
+      supabase.from('modifier_groups').select('*, modifier_options(*)').eq('is_active', true),
+      supabase.from('menu_item_modifier_groups').select('*')
     ]);
+
+    this.modifierGroups = modGroupsResult.data || [];
+    this.itemModifierGroups = linksResult.data || [];
 
     if (settingsResult.data) {
       settingsResult.data.forEach(row => { this.settings[row.key] = row.value; });
@@ -138,12 +143,38 @@ export class CustomerHome {
         sort_order: item.categories?.sort_order !== undefined ? item.categories.sort_order : 999,
         item_sort_order: item.sort_order !== undefined ? item.sort_order : 999,
         likes_count: item.likes_count || 0,
-        is_sold_out: item.is_sold_out || false
+        is_sold_out: item.is_sold_out || false,
+        variants: item.variants
       }));
     }
 
     this._updateLangProperties();
     this._render();
+
+    // Check active login session and fetch points if authenticated
+    try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && session.user && session.user.phone) {
+            const companyId = '00000000-0000-0000-0000-000000000000';
+            const { data: member } = await supabase
+                .from('members')
+                .select('*')
+                .eq('phone', session.user.phone)
+                .eq('company_id', companyId)
+                .maybeSingle();
+
+            if (member) {
+                this.guestInfo = {
+                    phone: member.phone,
+                    name: member.name
+                };
+                this.guestPoints = member.points;
+                this._updatePointsBadge();
+            }
+        }
+    } catch (err) {
+        console.error("Session restore failed:", err);
+    }
     this._initNav();
     this._initGallery();
     this._initMenuSearch();
@@ -201,7 +232,8 @@ export class CustomerHome {
           <li class="c-nav__link" id="nav-menu-link">${t.menu}</li>
           <li class="c-nav__link" data-scroll="c-footer">${t.contact}</li>
         </ul>
-        <div class="c-nav__actions">
+        <div class="c-nav__actions" style="display:flex; align-items:center; gap:0.5rem;">
+          <div id="customer-points-badge" style="display:none; font-family:'Outfit',sans-serif; font-size:0.75rem; font-weight:800; background:var(--red); color:white; padding:0.3rem 0.6rem; border-radius:20px; box-shadow:0 2px 8px rgba(183, 28, 28, 0.15);"></div>
           <button class="c-nav__icon-btn" id="cart-nav-btn" aria-label="ตะกร้า">
             <i class="fas fa-shopping-bag"></i>
           </button>
@@ -447,6 +479,8 @@ export class CustomerHome {
             <div class="c-detail-modal__tab-content">
               <div class="c-detail-tab-panel" id="detail-panel-desc">
                 <p id="detail-modal-desc-text" style="margin-top: 0.5rem;"></p>
+                <div id="detail-modal-variants-container" style="margin-top: 1rem; display: none;"></div>
+                <div id="detail-modal-modifiers-container" style="margin-top: 1rem; display: none;"></div>
               </div>
             </div>
           </div>
@@ -901,9 +935,17 @@ export class CustomerHome {
       const id = btn.dataset.id;
       const price = parseFloat(btn.dataset.price);
       const name = btn.dataset.name;
-      this._addToCart(id, price, name, 1);
-      this._animateFlyToCart(btn, 1);
-      this._trackEvent('add_to_cart', { menu_id: id, price, ts: Date.now() });
+
+      // Check if this menu item has linked modifiers
+      const hasModifiers = (this.itemModifierGroups || []).some(link => link.menu_item_id === id);
+
+      if (hasModifiers) {
+        this._openDetailModal(id);
+      } else {
+        this._addToCart(id, price, name, 1);
+        this._animateFlyToCart(btn, 1);
+        this._trackEvent('add_to_cart', { menu_id: id, price, ts: Date.now() });
+      }
     });
 
     // Like/Heart button toggle (event delegation for both card and detail modal)
@@ -962,9 +1004,17 @@ export class CustomerHome {
       const id = btn.dataset.id;
       const price = parseFloat(btn.dataset.price);
       const name = btn.dataset.name;
-      this._addToCart(id, price, name, 1);
-      this._animateFlyToCart(btn, 1);
-      this._trackEvent('add_to_cart_card', { menu_id: id, price, ts: Date.now() });
+
+      // Check if this menu item has linked modifiers
+      const hasModifiers = (this.itemModifierGroups || []).some(link => link.menu_item_id === id);
+
+      if (hasModifiers) {
+        this._openDetailModal(id);
+      } else {
+        this._addToCart(id, price, name, 1);
+        this._animateFlyToCart(btn, 1);
+        this._trackEvent('add_to_cart_card', { menu_id: id, price, ts: Date.now() });
+      }
     });
 
     // Card-level minus quantity adjustment
@@ -1460,15 +1510,89 @@ export class CustomerHome {
     document.getElementById('detail-add-to-cart-btn')?.addEventListener('click', () => {
       if (!this._selectedDetailItem) return;
       const item = this._selectedDetailItem;
-      const displayName = this.currentLang === 'th' ? item.name_th : item.name_en;
-      this._addToCart(item.id, item.price, displayName, this._detailQty);
+
+      // Validate modifier groups min_selection requirements
+      const linkedGroupIds = (this.itemModifierGroups || [])
+          .filter(link => link.menu_item_id === item.id)
+          .map(link => link.modifier_group_id);
+      
+      const activeGroups = (this.modifierGroups || []).filter(g => linkedGroupIds.includes(g.id));
+
+      for (const group of activeGroups) {
+          const min = group.min_selection || 0;
+          if (min > 0) {
+              const selectedCountInGroup = (this._selectedModifiers || []).filter(o => o.groupId === group.id).length;
+              if (selectedCountInGroup < min) {
+                  const isTh = this.currentLang === 'th';
+                  const groupName = isTh ? group.name_th : (group.name_en || group.name_th);
+                  alert(isTh 
+                      ? `กรุณาเลือกในกลุ่ม "${groupName}" อย่างน้อย ${min} รายการ` 
+                      : `Please select at least ${min} options in "${groupName}"`);
+                  return;
+              }
+          }
+      }
+      
+      let finalId = item.id;
+      let finalPrice = item.price;
+      let finalNameTh = item.name_th;
+      let finalNameEn = item.name_en;
+      let chosenModifiers = [];
+
+      if (this._selectedVariant) {
+        finalId = `${item.id}-${this._selectedVariant.name_en}`;
+        finalPrice = this._selectedVariant.price_cents / 100;
+        finalNameTh = `${item.name_th} (${this._selectedVariant.name_th})`;
+        finalNameEn = item.name_en 
+          ? `${item.name_en} (${this._selectedVariant.name_en || this._selectedVariant.name_th})` 
+          : (this._selectedVariant.name_en || this._selectedVariant.name_th);
+      }
+
+      if (this._selectedModifiers && this._selectedModifiers.length > 0) {
+        const modIdSuffix = this._selectedModifiers.map(o => o.id).join('-');
+        finalId = `${finalId}-${modIdSuffix}`;
+        
+        const extraCents = this._selectedModifiers.reduce((sum, o) => sum + o.price_cents, 0);
+        finalPrice += extraCents / 100;
+
+        const modNameTh = this._selectedModifiers.map(o => o.name_th).join(', ');
+        const modNameEn = this._selectedModifiers.map(o => o.name_en || o.name_th).join(', ');
+
+        finalNameTh = `${finalNameTh} (${modNameTh})`;
+        finalNameEn = finalNameEn ? `${finalNameEn} (${modNameEn})` : modNameEn;
+        
+        chosenModifiers = this._selectedModifiers.map(o => ({
+          id: o.id,
+          name_th: o.name_th,
+          name_en: o.name_en,
+          price_cents: o.price_cents
+        }));
+      }
+
+      const displayName = this.currentLang === 'th' ? finalNameTh : finalNameEn;
+
+      // Add to cart manually to support custom composite properties
+      const existing = this.cart.find(i => i.id === finalId);
+      if (existing) {
+        existing.qty += this._detailQty;
+      } else {
+        this.cart.push({
+          id: finalId,
+          price: finalPrice,
+          name_th: finalNameTh,
+          name_en: finalNameEn,
+          qty: this._detailQty,
+          modifiers: chosenModifiers.length > 0 ? chosenModifiers : undefined
+        });
+      }
+      this._updateCartUI();
       
       // Trigger fly animation
       const startEl = document.getElementById('detail-modal-img') || document.getElementById('detail-add-to-cart-btn');
       this._animateFlyToCart(startEl, this._detailQty);
 
       // Track event
-      this._trackEvent('add_to_cart_detail', { menu_id: item.id, qty: this._detailQty, price: item.price, ts: Date.now() });
+      this._trackEvent('add_to_cart_detail', { menu_id: finalId, qty: this._detailQty, price: finalPrice, ts: Date.now() });
 
       // Toast feedback
       const toast = document.getElementById('toast-el');
@@ -1550,6 +1674,216 @@ export class CustomerHome {
       const icon = likeBtn.querySelector('i');
       if (icon) {
         icon.className = isLiked ? 'fas fa-heart' : 'far fa-heart';
+      }
+    }
+
+    // Price updater helper
+    const updateTotalPrice = () => {
+        let baseCents = this._selectedVariant ? this._selectedVariant.price_cents : (item.price * 100);
+        let extraCents = (this._selectedModifiers || []).reduce((sum, o) => sum + o.price_cents, 0);
+        price.textContent = `฿ ${Number((baseCents + extraCents) / 100).toLocaleString()}`;
+    };
+
+    // Render variants if present
+    const variantsContainer = document.getElementById('detail-modal-variants-container');
+    this._selectedVariant = null;
+
+    let parsedVariants = null;
+    if (item.variants) {
+      try {
+        parsedVariants = typeof item.variants === 'string' ? JSON.parse(item.variants) : item.variants;
+      } catch (e) {
+        parsedVariants = null;
+      }
+    }
+
+    if (parsedVariants && parsedVariants.length > 0) {
+      this._selectedVariant = parsedVariants[0];
+      price.textContent = `฿ ${Number(this._selectedVariant.price_cents / 100).toLocaleString()}`;
+      
+      const isTh = this.currentLang === 'th';
+      const labelText = isTh ? 'เลือกประเภท / เนื้อสัตว์ / ขนาด' : 'Select Size / Meat / Type';
+
+      let optionsHtml = `<label style="display:block; font-size:0.75rem; font-weight:700; color:var(--text-muted); margin-bottom:0.5rem; text-transform:uppercase; letter-spacing:0.05em;">${labelText}</label>
+      <div style="display:flex; flex-direction:column; gap:0.5rem;">`;
+
+      parsedVariants.forEach((v, index) => {
+        const vName = isTh ? v.name_th : (v.name_en || v.name_th);
+        const isActive = index === 0;
+        const activeBorder = isActive ? 'border: 2px solid var(--red); background: rgba(183, 28, 28, 0.04);' : 'border: 1.5px solid var(--cream-border);';
+        const activeDot = isActive ? 'display: block;' : 'display: none;';
+        const activeDotBorder = isActive ? 'border-color: var(--red);' : 'border-color: #C8C8C8;';
+
+        optionsHtml += `
+          <div class="variant-option-card" data-index="${index}" style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; border-radius: 12px; cursor: pointer; transition: all 0.2s; ${activeBorder}">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <div class="variant-option-radio" style="width: 16px; height: 16px; border-radius: 50%; border: 2px solid; display: flex; align-items: center; justify-content: center; ${activeDotBorder}">
+                <div class="variant-option-dot" style="width: 8px; height: 8px; border-radius: 50%; background: var(--red); ${activeDot}"></div>
+              </div>
+              <span style="font-family: 'Prompt', sans-serif; font-size: 0.8rem; font-weight: 700; color: var(--dark);">${vName}</span>
+            </div>
+            <span style="font-family: 'Outfit', sans-serif; font-size: 0.85rem; font-weight: 800; color: var(--red);">฿ ${Number(v.price_cents / 100).toLocaleString()}</span>
+          </div>
+        `;
+      });
+      optionsHtml += `</div>`;
+      
+      if (variantsContainer) {
+        variantsContainer.innerHTML = optionsHtml;
+        variantsContainer.style.display = 'block';
+
+        // Add click handlers for options
+        const cards = variantsContainer.querySelectorAll('.variant-option-card');
+        cards.forEach(card => {
+          card.onclick = () => {
+            // Reset all styles
+            cards.forEach(c => {
+              c.style.border = '1.5px solid var(--cream-border)';
+              c.style.background = '';
+              c.querySelector('.variant-option-radio').style.borderColor = '#C8C8C8';
+              c.querySelector('.variant-option-dot').style.display = 'none';
+            });
+
+            // Set active styles
+            card.style.border = '2px solid var(--red)';
+            card.style.background = 'rgba(183, 28, 28, 0.04)';
+            card.querySelector('.variant-option-radio').style.borderColor = 'var(--red)';
+            card.querySelector('.variant-option-dot').style.display = 'block';
+
+            // Update selection state
+            const selectedIdx = parseInt(card.dataset.index);
+            this._selectedVariant = parsedVariants[selectedIdx];
+            updateTotalPrice();
+          };
+        });
+      }
+    } else {
+      if (variantsContainer) {
+        variantsContainer.innerHTML = '';
+        variantsContainer.style.display = 'none';
+      }
+    }
+
+    // Render modifiers if present
+    const modifiersContainer = document.getElementById('detail-modal-modifiers-container');
+    this._selectedModifiers = [];
+
+    const linkedGroupIds = (this.itemModifierGroups || [])
+        .filter(link => link.menu_item_id === item.id)
+        .map(link => link.modifier_group_id);
+
+    const activeGroups = (this.modifierGroups || []).filter(g => linkedGroupIds.includes(g.id));
+
+    if (activeGroups.length > 0 && modifiersContainer) {
+      const isTh = this.currentLang === 'th';
+      let modifiersHtml = '';
+
+      activeGroups.forEach(group => {
+          const options = (group.modifier_options || []).filter(o => o.is_active);
+          const isSingleSelect = group.max_selection === 1;
+          const labelText = isTh ? group.name_th : (group.name_en || group.name_th);
+          const requirementText = group.min_selection > 0 
+              ? (isTh ? `* จำเป็นต้องเลือกอย่างน้อย ${group.min_selection}` : `* Select at least ${group.min_selection}`) 
+              : '';
+          
+          modifiersHtml += `
+            <div class="customer-modifier-group-block" style="margin-top:1.25rem;" data-group-id="${group.id}" data-min="${group.min_selection}" data-max="${group.max_selection}" data-name="${labelText}">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+                <label style="font-size:0.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em;">${labelText}</label>
+                <span style="font-size:0.65rem; font-weight:600; color:var(--red);">${requirementText}</span>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:0.5rem;">
+                ${options.map(opt => {
+                    const optName = isTh ? opt.name_th : (opt.name_en || opt.name_th);
+                    const isSoldOut = opt.is_sold_out;
+                    return `
+                      <div class="customer-modifier-option-card" 
+                           data-group-id="${group.id}" 
+                           data-option-id="${opt.id}" 
+                           data-price-cents="${opt.price_cents}"
+                           data-name-th="${opt.name_th}"
+                           data-name-en="${opt.name_en || ''}"
+                           style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; border-radius: 12px; cursor: ${isSoldOut ? 'not-allowed' : 'pointer'}; transition: all 0.2s; border: 1.5px solid var(--cream-border); background: ${isSoldOut ? '#F2F2F7' : 'white'}; opacity: ${isSoldOut ? 0.45 : 1}; pointer-events: ${isSoldOut ? 'none' : 'auto'};">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                          <div class="modifier-option-checkbox" style="width: 16px; height: 16px; border-radius: ${isSingleSelect ? '50%' : '4px'}; border: 2px solid #C8C8C8; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">
+                            <div class="modifier-option-dot" style="width: 8px; height: 8px; border-radius: ${isSingleSelect ? '50%' : '2px'}; background: var(--red); display: none;"></div>
+                          </div>
+                          ${opt.image_url ? `<img src="${opt.image_url}" style="width: 28px; height: 28px; object-fit: cover; border-radius: 6px; border: 1px solid var(--cream-border); margin-right: 0.25rem;">` : ''}
+                          <span style="font-family: 'Prompt', sans-serif; font-size: 0.8rem; font-weight: 700; color: var(--dark);">${optName} ${isSoldOut ? `<span style="font-family:'Prompt',sans-serif; font-size:0.6rem; font-weight:800; background:#FFEAEA; color:#FF3B30; padding:0.15rem 0.40rem; border-radius:10px; margin-left:0.25rem; pointer-events:none;">หมดชั่วคราว</span>` : ''}</span>
+                        </div>
+                        <span style="font-family: 'Outfit', sans-serif; font-size: 0.85rem; font-weight: 800; color: var(--red);">${opt.price_cents > 0 ? `+ ฿ ${Number(opt.price_cents / 100).toFixed(2)}` : '฿ 0.00'}</span>
+                      </div>
+                    `;
+                }).join('')}
+              </div>
+            </div>
+          `;
+      });
+      modifiersContainer.innerHTML = modifiersHtml;
+      modifiersContainer.style.display = 'block';
+
+      // Set up click handlers
+      const blocks = modifiersContainer.querySelectorAll('.customer-modifier-group-block');
+      blocks.forEach(block => {
+          const groupId = block.dataset.groupId;
+          const max = parseInt(block.dataset.max) || 999;
+          const isSingle = max === 1;
+
+          const cards = block.querySelectorAll('.customer-modifier-option-card');
+          cards.forEach(card => {
+              card.onclick = () => {
+                  const optionId = card.dataset.optionId;
+                  const priceCents = parseInt(card.dataset.priceCents) || 0;
+                  const nameTh = card.dataset.nameTh;
+                  const nameEn = card.dataset.nameEn;
+
+                  const isChecked = card.style.borderColor === 'var(--red)';
+
+                  if (isChecked) {
+                      card.style.borderColor = 'var(--cream-border)';
+                      card.style.background = 'white';
+                      card.querySelector('.modifier-option-checkbox').style.borderColor = '#C8C8C8';
+                      card.querySelector('.modifier-option-dot').style.display = 'none';
+
+                      this._selectedModifiers = this._selectedModifiers.filter(o => o.id !== optionId);
+                  } else {
+                      if (isSingle) {
+                          cards.forEach(c => {
+                              c.style.borderColor = 'var(--cream-border)';
+                              c.style.background = 'white';
+                              c.querySelector('.modifier-option-checkbox').style.borderColor = '#C8C8C8';
+                              c.querySelector('.modifier-option-dot').style.display = 'none';
+                              this._selectedModifiers = this._selectedModifiers.filter(o => o.id !== c.dataset.optionId);
+                          });
+                      } else {
+                          const currentGroupSelectedCount = this._selectedModifiers.filter(o => o.groupId === groupId).length;
+                          if (currentGroupSelectedCount >= max) {
+                              alert(`เลือกตัวเลือกเสริมได้สูงสุด ${max} รายการสำหรับกลุ่มนี้`);
+                              return;
+                          }
+                      }
+
+                      card.style.borderColor = 'var(--red)';
+                      card.style.background = 'rgba(183, 28, 28, 0.04)';
+                      card.querySelector('.modifier-option-checkbox').style.borderColor = 'var(--red)';
+                      card.querySelector('.modifier-option-dot').style.display = 'block';
+
+                      this._selectedModifiers.push({
+                          id: optionId,
+                          groupId: groupId,
+                          name_th: nameTh,
+                          name_en: nameEn,
+                          price_cents: priceCents
+                      });
+                  }
+                  updateTotalPrice();
+              };
+          });
+      });
+    } else {
+      if (modifiersContainer) {
+        modifiersContainer.innerHTML = '';
+        modifiersContainer.style.display = 'none';
       }
     }
 
@@ -1777,6 +2111,17 @@ export class CustomerHome {
         setTimeout(() => cartNavBtn.classList.remove('pulse-badge'), 400);
       }
     });
+  }
+
+  _updatePointsBadge() {
+    const badge = document.getElementById('customer-points-badge');
+    if (!badge) return;
+    if (this.guestInfo) {
+      badge.textContent = `🪙 ${this.guestPoints || 0} pts`;
+      badge.style.display = 'block';
+    } else {
+      badge.style.display = 'none';
+    }
   }
 }
 

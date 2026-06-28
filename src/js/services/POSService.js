@@ -179,7 +179,8 @@ export class POSService {
                     item_name_th: item.name_th,
                     price_per_unit_cents: item.base_price_cents,
                     quantity: item.quantity,
-                    total_line_cents: item.base_price_cents * item.quantity
+                    total_line_cents: item.base_price_cents * item.quantity,
+                    ordered_modifiers: item.ordered_modifiers || null
                 };
             });
 

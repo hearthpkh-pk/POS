@@ -570,7 +570,32 @@ body.customer-portal.no-scroll {
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
   select-none: none;
+}
+
+.c-menu-card__sold-out-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(255, 59, 48, 0.95);
+  color: #FFFFFF;
+  font-family: 'Prompt', sans-serif;
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 0.25rem 0.6rem;
+  border-radius: 8px;
+  letter-spacing: 0.05em;
+  z-index: 4;
+  box-shadow: 0 4px 10px rgba(255, 59, 48, 0.25);
+}
+
+.c-menu-card--sold-out {
+  opacity: 1; /* Keep food image 100% colorful and appetizing */
+}
+
+.c-menu-card--sold-out .c-menu-card__price {
+  color: var(--red) !important; /* Keep original price color or style */
 }
 .c-menu-card__img-container img {
   width: 100%;
@@ -1460,16 +1485,25 @@ body.customer-portal.no-scroll {
 
 .c-detail-modal__sheet {
   width: 100%;
-  max-width: 450px;
+  max-width: 100%;
   height: 85vh; /* Standard bottom sheet height */
   background: #F9F9FA;
-  border-radius: 32px 32px 0 0;
+  border-radius: 28px 28px 0 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   position: relative;
   box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.25);
   animation: slideUpDetail 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@media (min-width: 640px) {
+  .c-detail-modal__sheet {
+    max-width: 480px;
+    border-radius: 32px;
+    margin-bottom: 2rem;
+    height: 80vh;
+  }
 }
 
 @keyframes slideUpDetail {
@@ -1518,10 +1552,10 @@ body.customer-portal.no-scroll {
 
 .c-detail-modal__img-wrapper {
   position: absolute;
-  bottom: -35px;
+  bottom: -45px;
   left: 50%;
   transform: translateX(-50%);
-  width: 170px; height: 170px;
+  width: 180px; height: 180px;
   display: flex; align-items: center; justify-content: center;
   z-index: 10;
 }
@@ -1529,7 +1563,9 @@ body.customer-portal.no-scroll {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-  filter: drop-shadow(0 15px 20px rgba(0, 0, 0, 0.3));
+  background: transparent;
+  /* Premium drop-shadow conforming to the transparency alpha channel of PNG */
+  filter: drop-shadow(0 14px 20px rgba(0, 0, 0, 0.4));
 }
 
 .c-detail-modal__body {

@@ -7,4 +7,8 @@
 - [x] Clean up menu items IDs in `POSService.js` to support checkout/parking of variant items
 - [x] Fix `image_url` database save omission in `App.js` BOH saving
 - [x] Rewrite browser menu import utility with variants data mapping
+- [x] Fix category management (adding and deleting) by connecting callbacks in `App.js` and refreshing the view/modal
+- [x] Add dynamic variants editor with add/delete row interactions inside BOH menu form in `AdminMenuView.js`
+- [x] Integrate variants editing with save handlers (insert/update) in `App.js`
+- [x] Implement variants selection support in customer portal food detail modal in `customerHome.js`
 - [x] Compile and verify production build successfully

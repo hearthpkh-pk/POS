@@ -25,6 +25,9 @@ export class POSCartPanel {
                       <div class="ios-card bg-white p-3 flex justify-between items-center">
                         <div class="min-w-0 flex-1 pr-2">
                           <div class="font-semibold text-gray-950 truncate text-sm">${item.name_th}</div>
+                          ${item.ordered_modifiers && item.ordered_modifiers.length > 0 ? `
+                              <div class="text-[10px] text-gray-400 font-medium italic mt-0.5">${item.ordered_modifiers.map(o => `+ ${o.name_th}`).join(', ')}</div>
+                          ` : ''}
                           <div class="text-xs text-gray-500 mt-0.5">${Utils.formatCurrency(item.base_price_cents)} x ${item.quantity}</div>
                         </div>
                         <div class="flex items-center space-x-2 shrink-0">

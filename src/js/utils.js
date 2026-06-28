@@ -459,13 +459,15 @@ export class Utils {
           let currentQuality = options.quality;
           let currentWidth = width;
           let currentHeight = height;
-          // Force JPEG to ensure maximum compression efficiency
-          const currentType = 'image/jpeg';
+          
+          // Detect transparent image formats to preserve alpha transparency channel
+          const isTransparentFormat = file.type === 'image/png' || file.type === 'image/webp' || file.type === 'image/gif';
+          const outputType = isTransparentFormat ? 'image/png' : 'image/jpeg';
           let attempt = 0;
 
           const compressCycle = () => {
             attempt++;
-            console.log(`[CompressImage] Cycle #${attempt} - Quality: ${currentQuality}, Dimensions: ${currentWidth}x${currentHeight}`);
+            console.log(`[CompressImage] Cycle #${attempt} - Quality: ${currentQuality}, Dimensions: ${currentWidth}x${currentHeight}, Format: ${outputType}`);
             
             const canvas = document.createElement('canvas');
             canvas.width = currentWidth;
@@ -478,9 +480,15 @@ export class Utils {
               return;
             }
 
-            // Fill white background (since we are converting to JPEG)
-            ctx.fillStyle = '#FFFFFF';
-            ctx.fillRect(0, 0, currentWidth, currentHeight);
+            if (outputType === 'image/jpeg') {
+              // Fill white background (since JPEG doesn't support transparency)
+              ctx.fillStyle = '#FFFFFF';
+              ctx.fillRect(0, 0, currentWidth, currentHeight);
+            } else {
+              // Clear canvas to ensure alpha transparency is preserved
+              ctx.clearRect(0, 0, currentWidth, currentHeight);
+            }
+
             ctx.drawImage(img, 0, 0, currentWidth, currentHeight);
 
             canvas.toBlob(
@@ -503,16 +511,17 @@ export class Utils {
                 } else {
                   // Resolve with the compressed file
                   const nameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
-                  const compressedFile = new File([blob], `${nameWithoutExt}_compressed.jpg`, {
-                    type: 'image/jpeg',
+                  const extension = outputType === 'image/png' ? 'png' : 'jpg';
+                  const compressedFile = new File([blob], `${nameWithoutExt}_compressed.${extension}`, {
+                    type: outputType,
                     lastModified: Date.now(),
                   });
                   console.log('[CompressImage] Compressed successfully. Final size:', compressedFile.size);
                   resolve(compressedFile);
                 }
               },
-              'image/jpeg',
-              currentQuality
+              outputType,
+              outputType === 'image/jpeg' ? currentQuality : undefined
             );
           };
 

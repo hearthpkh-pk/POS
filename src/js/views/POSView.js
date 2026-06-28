@@ -10,7 +10,8 @@ import { POSReceiptModal } from './pos/modals/POSReceiptModal.js';
 import { POSSortModal } from './pos/modals/POSSortModal.js';
 import { POSParkModal } from './pos/modals/POSParkModal.js';
 import { POSCheckoutModal } from './pos/modals/POSCheckoutModal.js';
-import { POSVariantModal } from './pos/modals/POSVariantModal.js';
+
+import { POSModifierModal } from './pos/modals/POSModifierModal.js';
 
 export class POSView {
     constructor(containerId) {
@@ -18,6 +19,8 @@ export class POSView {
         this.currentView = 'pos_orders'; // 'pos_orders' | 'pos_menu'
         this.menuTree = [];
         this.pendingOrders = [];
+        this.modifierGroups = [];
+        this.itemModifierGroups = [];
         this.currentTableId = 'ออเดอร์ใหม่';
         this.isSortingMenuItems = false;
         this.sortables = [];
@@ -27,6 +30,11 @@ export class POSView {
         this.onNewOrderCallback = null;
         this.onParkCallback = null;
         this.onCheckoutCallback = null;
+    }
+
+    setModifierData(modifierGroups, itemModifierGroups) {
+        this.modifierGroups = modifierGroups || [];
+        this.itemModifierGroups = itemModifierGroups || [];
     }
 
     setMenu(menuData) {
@@ -114,16 +122,36 @@ export class POSView {
             POSMenuPanel.bindEvents(this.container, this.menuTree, {
                 onAddMenu: (item) => {
                     if (item.is_sold_out) return;
-                    if (item.variants && item.variants.length > 0) {
-                        POSVariantModal.show(item, (selectedVariant) => {
-                            const variantItem = {
+
+                    // ตรวจสอบ Modifiers ที่เชื่อมกับเมนูนี้
+                    const linkedGroupIds = (this.itemModifierGroups || [])
+                        .filter(link => link.menu_item_id === item.id)
+                        .map(link => link.modifier_group_id);
+
+                    const hasModifiers = (this.modifierGroups || []).some(g => linkedGroupIds.includes(g.id));
+
+                    if (hasModifiers) {
+                        POSModifierModal.show(item, this.modifierGroups, this.itemModifierGroups, (selectedOptions) => {
+                            if (selectedOptions.length === 0) {
+                                posService.addItem(item, 1);
+                                this.render();
+                                return;
+                            }
+
+                            let totalModifierPrice = 0;
+                            let nameSuffixTh = selectedOptions.map(o => o.name_th).join(', ');
+                            let nameSuffixEn = selectedOptions.map(o => o.name_en || o.name_th).join(', ');
+                            selectedOptions.forEach(o => { totalModifierPrice += o.price_cents; });
+
+                            const customizedItem = {
                                 ...item,
-                                id: `${item.id}-${selectedVariant.name_en}`,
-                                name_th: `${item.name_th} (${selectedVariant.name_th})`,
-                                name_en: item.name_en ? `${item.name_en} (${selectedVariant.name_en})` : selectedVariant.name_en,
-                                base_price_cents: selectedVariant.price_cents
+                                id: `${item.id}-mod-${selectedOptions.map(o => o.id).join('-')}`,
+                                name_th: `${item.name_th} (${nameSuffixTh})`,
+                                name_en: item.name_en ? `${item.name_en} (${nameSuffixEn})` : nameSuffixEn,
+                                base_price_cents: item.base_price_cents + totalModifierPrice,
+                                ordered_modifiers: selectedOptions
                             };
-                            posService.addItem(variantItem, 1);
+                            posService.addItem(customizedItem, 1);
                             this.render();
                         });
                     } else {
@@ -195,9 +223,9 @@ export class POSView {
     }
 
     handleCheckoutClick() {
-        POSCheckoutModal.show(async (selectedMethod, notes) => {
+        POSCheckoutModal.show(async (selectedMethod, notes, memberPhone, pointsDelta, redeemedDiscountCents) => {
             if (this.onCheckoutCallback) {
-                await this.onCheckoutCallback(selectedMethod, notes);
+                await this.onCheckoutCallback(selectedMethod, notes, memberPhone, pointsDelta, redeemedDiscountCents);
             }
         });
     }
